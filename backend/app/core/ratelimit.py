@@ -7,7 +7,7 @@ import random
 from fastapi import Request
 from sqlalchemy import text
 
-from app.core.clientip import client_ip, limiter_key
+from app.core.clientip import request_ip, limiter_key
 from app.core.errors import RateLimited
 
 log = logging.getLogger(__name__)
@@ -64,4 +64,4 @@ def enforce_rate_limit(request: Request, scope: str, value: str | None, limit: i
 
 def enforce_ip_limit(request: Request, scope: str, limit: int, window: int) -> None:
     settings = request.app.state.settings
-    enforce_rate_limit(request, scope, client_ip(request, settings.trust_proxy_headers), limit, window)
+    enforce_rate_limit(request, scope, request_ip(request, settings), limit, window)

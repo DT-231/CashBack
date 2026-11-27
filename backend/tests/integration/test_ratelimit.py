@@ -180,3 +180,39 @@ def test_go_and_login_fail_open_when_limiter_query_fails(pg, make_settings, monk
     track(client, "login_email", email)
     failed_login = client.post("/api/v1/auth/login", json={"email": email, "password": "sai-mat-khau"})
     assert failed_login.status_code == 401
+
+
+BFF = "bff-itest-secret-0123456789"
+
+
+def bff_login(client, visitor_ip, secret=BFF, email=None):
+    """Đăng nhập sai như BFF làm: kết nối từ 127.0.0.1 (testclient), IP thật trong X-Visitor-IP."""
+    email = email or f"itest-bff-{visitor_ip.replace('.', '-')}@example.test"
+    track(client, "login_ip", visitor_ip)
+    track(client, "login_ip", "testclient")
+    track(client, "login_email", email)
+    headers = {"x-visitor-ip": visitor_ip}
+    if secret is not None:
+        headers["x-bff-secret"] = secret
+    return client.post("/api/v1/auth/login", headers=headers, json={"email": email, "password": "sai-mat-khau"})
+
+
+def test_bff_visitors_have_separate_counters(pg, make_settings):
+    client = api(pg, make_settings, bff_shared_secret=BFF, rl_login_per_minute=2)
+    a = [bff_login(client, "198.51.100.41").status_code for _ in range(3)]
+    b = [bff_login(client, "198.51.100.42").status_code for _ in range(3)]
+    assert a == [401, 401, 429]
+    assert b == [401, 401, 429]        # khách B không bị tính chung với khách A; mỗi người có bộ đếm riêng
+
+
+def test_forged_visitor_ip_cannot_dodge_the_limit(pg, make_settings):
+    client = api(pg, make_settings, bff_shared_secret=BFF, rl_login_per_minute=2)
+    # Sai secret: mọi "IP khác nhau" đều bị tính theo IP kết nối thật => vẫn bị chặn ở lần thứ 3
+    codes = [bff_login(client, f"198.51.100.{50 + n}", secret="forged").status_code for n in range(3)]
+    assert codes == [401, 401, 429]
+
+
+def test_visitor_ip_ignored_when_no_secret_configured(pg, make_settings):
+    client = api(pg, make_settings, rl_login_per_minute=2)       # bff_shared_secret để trống
+    codes = [bff_login(client, f"198.51.100.{60 + n}", secret=BFF).status_code for n in range(3)]
+    assert codes == [401, 401, 429]

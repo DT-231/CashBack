@@ -5,6 +5,11 @@ export function apiBase(): string {
   return v.replace(/\/+$/, "");
 }
 
+/** Bí mật chung BFF↔backend (T-017). Chỉ phía server, KHÔNG tiền tố NEXT_PUBLIC_. Rỗng = không gửi IP khách. */
+export function bffSecret(): string {
+  return process.env.BFF_SHARED_SECRET ?? "";
+}
+
 /** Production: cookie có tiền tố __Host-/__Secure- và cờ Secure. Dev trên http://localhost: bỏ tiền tố và Secure. */
 export function secureCookies(): boolean {
   return process.env.NODE_ENV === "production";

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Request
 
-from app.core.clientip import client_ip
+from app.core.clientip import request_ip
 from app.core.errors import Unauthorized
 from app.core.ratelimit import enforce_ip_limit, enforce_rate_limits
 from app.modules.auth.schemas import LoginIn, RefreshIn, RegisterIn, TokenOut, UserOut
@@ -39,7 +39,7 @@ def register(body: RegisterIn, request: Request):
 def login(body: LoginIn, request: Request):
     settings = request.app.state.settings
     enforce_rate_limits(request, [
-        ("login_ip", client_ip(request, settings.trust_proxy_headers), settings.rl_login_per_minute, 60),
+        ("login_ip", request_ip(request, settings), settings.rl_login_per_minute, 60),
         ("login_email", body.email, settings.rl_login_per_email_15min, 900),
     ])
     return _service(request).login(body.email, body.password)

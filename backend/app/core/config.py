@@ -64,6 +64,9 @@ class Settings(BaseSettings):
 
     # --- click (/go/{code}) ---
     ip_salt: SecretStr = SecretStr("")       # khóa HMAC băm IP/User-Agent; rỗng = KHÔNG lưu ip_hash/ua_hash
+    # Bí mật chung với BFF Next.js (T-017): BFF gửi X-Visitor-IP kèm X-BFF-Secret; backend chỉ tin header IP khi secret khớp.
+    # Rỗng = không tin X-Visitor-IP. Khi đặt phải >= 16 ký tự. Chỉ phía server, đặt cùng giá trị cho BFF (BFF_SHARED_SECRET).
+    bff_shared_secret: SecretStr = SecretStr("")
     trust_proxy_headers: bool = False        # True khi đứng sau Cloudflare/Tunnel: lấy IP thật từ CF-Connecting-IP
 
     # --- đăng nhập (module auth) ---
@@ -107,6 +110,9 @@ class Settings(BaseSettings):
             raise ConfigError("Thiếu biến môi trường: " + ", ".join(missing))
 
     def validate_for_serving(self) -> None:
+        secret = self.bff_shared_secret.get_secret_value()
+        if secret and len(secret) < 16:
+            raise ConfigError("BFF_SHARED_SECRET phải có ít nhất 16 ký tự (hoặc để trống để không tin X-Visitor-IP)")
         if self.trust_proxy_headers and not self.is_loopback:
             raise ConfigError(
                 f"TRUST_PROXY_HEADERS=1 nhưng HOST={self.host} lắng nghe ngoài localhost: ai tới được cổng "
