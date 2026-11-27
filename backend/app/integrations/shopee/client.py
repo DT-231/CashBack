@@ -12,6 +12,7 @@ MOCK=1 dùng FakeShopeeClient (fake.py) với fixture ẩn danh, không đụng 
 from __future__ import annotations
 
 import random
+import re
 import threading
 import time
 from dataclasses import dataclass, field
@@ -55,8 +56,23 @@ class ShopeeClient:
         self._local = threading.local()   # mỗi luồng giữ session riêng (requests.Session không an toàn đa luồng)
 
     # ---------- chung ----------
+    @staticmethod
+    def _clean_cookie(raw: str) -> str:
+        """Chấp nhận cookie dán nguyên dòng `Cookie: a=b; c=d` hoặc có xuống dòng -> `a=b; c=d`."""
+        s = (raw or "").strip()
+        if s.lower().startswith("cookie:"):
+            s = s[7:]
+        s = re.sub(r"[\r\n]+", "; ", s)
+        s = re.sub(r"(?:;\s*){2,}", "; ", s)   # gộp mọi chuỗi ";;" / "; ;" thành một dấu
+        return s.strip(" ;")
+
     def _cookie(self) -> str:
-        return self.s.shopee_cookie.get_secret_value().strip()
+        """Cookie affiliate.shopee.vn (chỉ dashboard)."""
+        return self._clean_cookie(self.s.shopee_cookie.get_secret_value())
+
+    def _web_cookie(self) -> str:
+        """Cookie shopee.vn (chỉ search)."""
+        return self._clean_cookie(self.s.shopee_web_cookie.get_secret_value())
 
     def _session(self, headers: dict, kind: str = "search") -> requests.Session:
         """Session dùng lại theo (luồng, kind) để giữ Set-Cookie và kết nối TLS.
@@ -94,7 +110,7 @@ class ShopeeClient:
             "X-Requested-With": "XMLHttpRequest", "X-API-SOURCE": "pc", "X-Shopee-Language": "vi",
         }
         # Cookie của shopee.vn. TUYỆT ĐỐI không fallback sang cookie affiliate (khác host -> luôn 403)
-        c = self.s.shopee_web_cookie.get_secret_value().strip()
+        c = self._web_cookie()
         if c:
             h["Cookie"] = c
         enc = (self.s.shopee_web_enc_dat.get_secret_value().strip()
@@ -120,7 +136,7 @@ class ShopeeClient:
         }
 
     def _search_live(self, keyword: str, limit: int, sort: str) -> dict:
-        if not self.s.shopee_web_cookie.get_secret_value().strip():
+        if not self._web_cookie():
             # Không bắn 3 request để nhận 403 chung chung: báo thẳng để ProductSearch rơi sang engine kế
             return {"ok": False, "items": [], "source": "shopee",
                     "error": "Thiếu SHOPEE_WEB_COOKIE (cookie của shopee.vn, không phải affiliate.shopee.vn)"}

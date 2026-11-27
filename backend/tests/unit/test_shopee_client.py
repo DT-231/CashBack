@@ -415,3 +415,29 @@ def test_network_error_retries_without_final_sleep(monkeypatch):
     patch_get(monkeypatch, boom)
     c, s = sleeps(make())
     assert "ConnectionError" in c.search("x")["error"] and len(s) == 2
+
+
+# ---------- P2-9: làm sạch cookie dán vào ----------
+def test_clean_cookie_variants():
+    f = ShopeeClient._clean_cookie
+    assert f("Cookie: SPC_F=abc;\r\nSPC_U=1") == "SPC_F=abc; SPC_U=1"
+    assert f("cookie:  a=b; c=d ;") == "a=b; c=d"
+    assert f("a=b;;  ; c=d") == "a=b; c=d"
+    assert f("a=1\nb=2\n") == "a=1; b=2"
+    assert f("") == "" and f(None) == "" and f("   ") == ""
+
+
+def test_both_cookie_kinds_are_cleaned_before_sending(monkeypatch):
+    seen = {}
+    monkeypatch.setattr("requests.Session.get", lambda self, url, **k: seen.setdefault(url, self.headers.get("Cookie") or self.headers.get("cookie")) and Resp(200, {"code": 0, "data": {"items": []}}))
+    c = make(cookie="Cookie: AFF=1;\nAFF2=2", web="Cookie: SPC_F=abc;\r\nSPC_U=1")
+    c.search("x")
+    c._get("/api/x", {})
+    assert seen["https://shopee.vn/api/v4/search/search_items"] == "SPC_F=abc; SPC_U=1"
+    assert seen["https://affiliate.shopee.vn/api/x"] == "AFF=1; AFF2=2"
+
+
+def test_web_cookie_only_whitespace_counts_as_missing(monkeypatch):
+    calls = []
+    patch_get(monkeypatch, lambda *a, **k: calls.append(1) or Resp(403))
+    assert "Thiếu SHOPEE_WEB_COOKIE" in make(web="Cookie:  ").search("x")["error"] and calls == []
