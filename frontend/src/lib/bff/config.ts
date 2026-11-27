@@ -10,6 +10,23 @@ export function bffSecret(): string {
   return process.env.BFF_SHARED_SECRET ?? "";
 }
 
+export type VisitorIpStatus = "ok" | "missing_secret" | "short_secret";
+export const MIN_BFF_SECRET = 16;
+
+/** Không bao giờ trả giá trị secret, chỉ trạng thái. */
+export function visitorIpStatus(): VisitorIpStatus {
+  const n = bffSecret().length;
+  return n === 0 ? "missing_secret" : n < MIN_BFF_SECRET ? "short_secret" : "ok";
+}
+
+/** Cảnh báo lúc khởi động và trong /bff/health khi secret thiếu/ngắn (mọi khách dùng chung một bộ đếm rate limit). */
+export function startupWarnings(): string[] {
+  const st = visitorIpStatus();
+  if (st === "ok") return [];
+  return [`BFF_SHARED_SECRET ${st === "missing_secret" ? "chưa đặt" : `quá ngắn (< ${MIN_BFF_SECRET} ký tự)`}: BFF không gửi IP khách nên backend `
+    + "đếm MỌI khách chung một bộ đếm rate limit (một khách đăng nhập sai nhiều lần sẽ chặn tất cả). Đặt cùng BFF_SHARED_SECRET cho backend và BFF"];
+}
+
 /** Production: cookie có tiền tố __Host-/__Secure- và cờ Secure. Dev trên http://localhost: bỏ tiền tố và Secure. */
 export function secureCookies(): boolean {
   return process.env.NODE_ENV === "production";

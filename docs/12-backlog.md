@@ -9,6 +9,7 @@ Nguồn dữ liệu máy đọc: `backlog/issues.csv` (cùng nội dung).
 
 - [ ] **T-017 xong** (X-Visitor-IP + bí mật chung, kèm T-016 đã merge): giới hạn tốc độ tính đúng theo từng khách qua BFF
 - [ ] **Có domain riêng** trên Cloudflare DNS (Tunnel hostname cố định, cookie `__Host-`, `WEB_ORIGIN`; xem `docs/06` mục 0). Tunnel nhanh `trycloudflare` không được dùng
+- [ ] **Domain đã được đăng ký làm kênh quảng bá** trong hồ sơ Affiliate Shopee (tab "Thông tin truyền thông"), và **tên domain không chứa thương hiệu Shopee** (PO kiểm điều khoản về dùng tên/nhãn hiệu; dùng tên có chữ "shopee" có thể bị coi là mạo danh)
 - [ ] **Đơn mua thử thật khớp sub_id**: làm theo `docs/runbooks/live-attribution-test.md`; `utm_content` có chữ ký còn nguyên và giải mã `ok`
 - [ ] **PO đã xác nhận với Shopee (bằng văn bản) về mô hình cashback** (rủi ro R-02): chia lại hoa hồng cho người dùng có được phép không, cần đăng ký kênh nào
 - [ ] **Trang Điều khoản và Chính sách quyền riêng tư** (T-064): bản nháp, **cần tư vấn pháp lý** trước khi dùng thật (R-06, R-17)
@@ -155,6 +156,16 @@ Ghi chú: các mục trên là điều kiện **mở cho người ngoài**. Dùn
   - Given secret sai hoặc thiếu When có X-Visitor-IP Then bỏ qua header, dùng IP kết nối
   - Given BFF_SHARED_SECRET Then chỉ ở env phía server, không NEXT_PUBLIC_
   - Given hai khách khác IP qua BFF When đăng nhập sai Then bộ đếm tách riêng
+
+### T-018: Là PO, tôi muốn đổi SUBID_SECRET mà đơn từ link đã phát hành vẫn quy được về user
+- Loại: feature · 3 điểm · Should · Sprint 1 · Owner: claude · Phụ thuộc: T-010. **Chưa làm** (ghi lại 2026-11-27).
+- Bối cảnh: `core/subid` chỉ hỗ trợ MỘT khóa (`SUBID_SECRET`). Đổi hoặc mất khóa thì mọi `utm_content` đã phát hành thành `invalid` (chữ ký sai) và đơn rơi vào hàng đơn mồ côi, không quy được về user.
+- Acceptance criteria:
+  - Given `SUBID_SECRET_PREVIOUS` (danh sách khóa cũ) When giải mã sub_id ký bằng khóa cũ Then `ok` (thử khóa hiện tại trước, rồi khóa cũ)
+  - Given link mới When tạo Then luôn ký bằng khóa hiện tại
+  - Given chữ ký chỉ 3 ký tự (không có id khóa) When thử nhiều khóa Then việc khớp nhầm bị chặn bởi kiểm tra sở hữu (click/link thuộc đúng user) của attribution, có test về khả năng khớp nhầm
+  - Given khóa cũ quá ngắn hoặc trùng khóa hiện tại When khởi động Then từ chối
+  - Given runbook When đọc Then có quy trình xoay khóa và việc sao lưu khóa ngoài `.env`
 
 ## E3 — Link của user và redirect /go  (13 điểm)
 

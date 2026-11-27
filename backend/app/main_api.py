@@ -87,6 +87,8 @@ def main() -> None:
     import uvicorn
     s = load_settings()
     s.validate_for_serving()
+    for w in s.startup_warnings():
+        log.warning(w)
     uvicorn.run(create_app(s), host=s.host, port=s.port, log_config=None)
 
 

@@ -29,7 +29,9 @@ def health(request: Request):
     return {"ok": True, "mock": s.mock, "aff_id_set": bool(s.aff_id),
             "cookie_set": bool(s.shopee_cookie.get_secret_value()),
             "web_cookie_set": bool(s.shopee_web_cookie.get_secret_value()), "engine": s.search_engine,
-            "feed_configured": bool(s.feed_file)}
+            "feed_configured": bool(s.feed_file),
+            "bff_enabled": s.bff_enabled, "visitor_ip": s.visitor_ip_status,
+            "degraded": bool(s.startup_warnings()), "warnings": s.startup_warnings()}
 
 
 @router.get("/")

@@ -5,7 +5,8 @@
 **Ai làm:** PO, bằng tay, trên máy và tài khoản của PO. Claude/Codex **không** gọi Shopee và không đăng nhập hộ. Tốn một khoản nhỏ (giá món rẻ nhất); đơn sẽ chỉ ra hoa hồng nếu món có hoa hồng và Shopee công nhận.
 
 ## 0. Chuẩn bị
-- `.env` có `SHOPEE_AFF_ID` (id affiliate của PO) và `SUBID_SECRET` (>= 16 ký tự, **ghi lại giá trị này**: đổi nó sau khi tạo link thì không giải mã được nữa). Không commit `.env`.
+- `.env` có `SHOPEE_AFF_ID` (id affiliate của PO) và `SUBID_SECRET` (>= 16 ký tự). Không commit `.env`.
+- **Sao lưu `SUBID_SECRET` NGOÀI `.env`** (trình quản lý mật khẩu hoặc ghi chú mã hóa, không để trong repo, không dán vào chat). `core/subid` hiện chỉ biết **một** khóa: nếu bạn **đổi hoặc mất** nó, mọi `utm_content` đã phát hành sẽ báo `invalid` (chữ ký sai) và các đơn từ link đó **không còn quy được về user**, rơi hết vào hàng đơn mồ côi. Chưa có cơ chế xoay khóa (backlog T-018): đừng đổi khóa sau khi đã phát hành link thật. Đặt khóa **một lần**, trước khi tạo link đầu tiên.
 - `make db-up`, rồi chạy API: `cd backend && ../.venv/bin/python -m app.main_api` (tạo link **không gọi Shopee**, `MOCK=1` vẫn đúng).
 
 ## 1. Tạo link bằng API

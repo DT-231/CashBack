@@ -107,3 +107,19 @@ def test_error_body_carries_the_same_request_id_as_header(client):
     r = client.get("/api/v1/agent/search", params={"keyword": "x"}, headers={"x-request-id": "rid-42"})
     assert r.status_code == 401 and r.headers["x-request-id"] == "rid-42"
     assert r.json()["error"]["request_id"] == "rid-42"
+
+
+def test_health_reports_missing_bff_secret(make_settings):
+    from fastapi.testclient import TestClient
+    from app.main_api import create_app
+
+    def health(**kw):
+        return TestClient(create_app(make_settings(**kw))).get("/health").json()
+
+    assert health()["visitor_ip"] == "direct" and health()["degraded"] is False
+    for kw in ({"bff_enabled": True}, {"bff_enabled": True, "bff_shared_secret": "short"}):
+        h = health(**kw)
+        assert h["degraded"] is True and h["visitor_ip"] in ("missing_secret", "short_secret")
+        assert h["warnings"] and "short" not in " ".join(h["warnings"]).replace("quá ngắn", "")
+    ok = health(bff_enabled=True, bff_shared_secret="x" * 16)
+    assert ok["visitor_ip"] == "ok" and ok["degraded"] is False and ok["warnings"] == []

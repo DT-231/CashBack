@@ -67,6 +67,9 @@ class Settings(BaseSettings):
     # Bí mật chung với BFF Next.js (T-017): BFF gửi X-Visitor-IP kèm X-BFF-Secret; backend chỉ tin header IP khi secret khớp.
     # Rỗng = không tin X-Visitor-IP. Khi đặt phải >= 16 ký tự. Chỉ phía server, đặt cùng giá trị cho BFF (BFF_SHARED_SECRET).
     bff_shared_secret: SecretStr = SecretStr("")
+    # Khai báo "web đi qua BFF Next.js" (BFF_ENABLED=1). Bật mà thiếu/ngắn BFF_SHARED_SECRET thì mọi khách dùng CHUNG một bộ đếm
+    # rate limit (127.0.0.1): cảnh báo lúc khởi động và hiện trong /health.
+    bff_enabled: bool = False
     trust_proxy_headers: bool = False        # True khi đứng sau Cloudflare/Tunnel: lấy IP thật từ CF-Connecting-IP
 
     # --- đăng nhập (module auth) ---
@@ -108,6 +111,24 @@ class Settings(BaseSettings):
                 missing.append(n.upper())
         if missing:
             raise ConfigError("Thiếu biến môi trường: " + ", ".join(missing))
+
+    @property
+    def visitor_ip_status(self) -> str:
+        """direct (không BFF) | ok | missing_secret | short_secret. Không bao giờ chứa giá trị secret."""
+        if not self.bff_enabled:
+            return "direct"
+        n = len(self.bff_shared_secret.get_secret_value())
+        return "missing_secret" if n == 0 else "short_secret" if n < 16 else "ok"
+
+    def startup_warnings(self) -> list[str]:
+        out = []
+        st = self.visitor_ip_status
+        if st in ("missing_secret", "short_secret"):
+            out.append(
+                f"BFF_ENABLED=1 nhưng BFF_SHARED_SECRET {'chưa đặt' if st == 'missing_secret' else 'quá ngắn (< 16 ký tự)'}: "
+                "backend không tin X-Visitor-IP nên MỌI khách qua web dùng chung một bộ đếm rate limit "
+                "(một khách đăng nhập sai nhiều lần sẽ chặn tất cả). Đặt cùng một BFF_SHARED_SECRET (>= 16 ký tự) cho backend và BFF")
+        return out
 
     def validate_for_serving(self) -> None:
         secret = self.bff_shared_secret.get_secret_value()

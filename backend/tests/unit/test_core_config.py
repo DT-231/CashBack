@@ -75,3 +75,26 @@ def test_trust_proxy_headers_refused_when_not_loopback():
     Settings(host="127.0.0.1", trust_proxy_headers=True).validate_for_serving()
     Settings(host="0.0.0.0", trust_proxy_headers=False, agent_api_key="k" * 20,
              ip_salt="i" * 20).validate_for_serving()
+
+
+def test_bff_secret_status_and_warnings():
+    assert Settings().visitor_ip_status == "direct" and Settings().startup_warnings() == []
+    assert Settings(bff_enabled=True).visitor_ip_status == "missing_secret"
+    assert Settings(bff_enabled=True, bff_shared_secret="short").visitor_ip_status == "short_secret"
+    assert Settings(bff_enabled=True, bff_shared_secret="x" * 16).visitor_ip_status == "ok"
+    assert Settings(bff_enabled=True, bff_shared_secret="x" * 16).startup_warnings() == []
+    for kw in ({}, {"bff_shared_secret": "short"}):
+        w = Settings(bff_enabled=True, **kw).startup_warnings()
+        assert len(w) == 1 and "chung một bộ đếm" in w[0]
+        assert "short" not in w[0].replace("quá ngắn", "")     # không in giá trị secret
+
+
+def test_bff_warning_is_logged_at_startup(monkeypatch, caplog):
+    import logging
+    from app import main_api
+    called = {}
+    monkeypatch.setattr(main_api, "load_settings", lambda: Settings(bff_enabled=True))
+    monkeypatch.setattr("uvicorn.run", lambda *a, **k: called.setdefault("ran", True))
+    with caplog.at_level(logging.WARNING):
+        main_api.main()
+    assert called.get("ran") and any("BFF_SHARED_SECRET" in r.getMessage() for r in caplog.records)

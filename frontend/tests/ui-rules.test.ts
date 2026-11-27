@@ -66,3 +66,16 @@ describe("bí mật phía server không lọt ra trình duyệt (ADR 0005, mục
     expect(LEAK.test("process.env.API_BASE_URL")).toBe(false);
   });
 });
+
+describe("Next.js chỉ lắng nghe 127.0.0.1 (T-017; test cổng compose chỉ bắt được cổng Docker)", () => {
+  const scripts = JSON.parse(readFileSync(path.resolve(__dirname, "../package.json"), "utf8")).scripts as Record<string, string>;
+  const loopbackOnly = (cmd: string) => /(^|\s)(-H|--hostname)[ =]127\.0\.0\.1(\s|$)/.test(cmd) && !/0\.0\.0\.0/.test(cmd);
+  it("dev và start bind 127.0.0.1", () => {
+    expect(loopbackOnly(scripts.dev), scripts.dev).toBe(true);
+    expect(loopbackOnly(scripts.start), scripts.start).toBe(true);
+  });
+  it("bộ kiểm bắt được lệnh mở ra ngoài", () => {
+    for (const bad of ["next start", "next start -H 0.0.0.0", "next start -H 127.0.0.1 -H 0.0.0.0", "next start -p 3000"]) expect(loopbackOnly(bad), bad).toBe(false);
+    expect(loopbackOnly("next start -H 127.0.0.1 -p 3000")).toBe(true);
+  });
+});

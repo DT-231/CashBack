@@ -4,6 +4,8 @@ import { handleAuth } from "@/lib/bff/auth";
 import { clearCookies, parseCookies, sessionCookies } from "@/lib/bff/cookies";
 import { checkCsrf } from "@/lib/bff/csrf";
 import { handleProxy } from "@/lib/bff/proxy";
+import { handleHealth } from "@/lib/bff/health";
+import { startupWarnings, visitorIpStatus } from "@/lib/bff/config";
 
 const ORIGIN = "https://app.test";
 const ACCESS = "ACCESS.jwt.token";
@@ -288,5 +290,43 @@ describe("T-017: IP thật của khách gửi sang backend", () => {
     const { f } = fakeApi(okTokens);
     const r = await handleAuth(reqWith("POST", "/bff/auth/login", { "cf-connecting-ip": "198.51.100.7" }), "login", f);
     expect(JSON.stringify([...r.headers.entries()]) + (await r.text())).not.toContain(SECRET);
+  });
+});
+
+
+describe("cảnh báo BFF_SHARED_SECRET thiếu/ngắn", () => {
+  it("trạng thái và cảnh báo theo độ dài secret, không lộ giá trị", () => {
+    expect(visitorIpStatus()).toBe("missing_secret");
+    expect(startupWarnings()).toHaveLength(1);
+    vi.stubEnv("BFF_SHARED_SECRET", "short-secret");
+    expect(visitorIpStatus()).toBe("short_secret");
+    expect(startupWarnings()[0]).toContain("quá ngắn");
+    expect(startupWarnings().join("")).not.toContain("short-secret");
+    vi.stubEnv("BFF_SHARED_SECRET", "x".repeat(15)); expect(visitorIpStatus()).toBe("short_secret");
+    vi.stubEnv("BFF_SHARED_SECRET", "x".repeat(16)); expect(visitorIpStatus()).toBe("ok");
+    expect(startupWarnings()).toEqual([]);
+  });
+  it("/bff/health báo degraded khi thiếu secret và không lộ secret khi đủ", async () => {
+    let j = await handleHealth().json();
+    expect(j).toMatchObject({ ok: true, visitor_ip: "missing_secret", degraded: true });
+    expect(j.warnings).toHaveLength(1);
+    vi.stubEnv("BFF_SHARED_SECRET", "z".repeat(20));
+    const r = handleHealth();
+    const text = await r.text();
+    j = JSON.parse(text);
+    expect(j).toMatchObject({ visitor_ip: "ok", degraded: false, warnings: [] });
+    expect(text).not.toContain("zzzz");
+  });
+  it("instrumentation: production cảnh báo qua console.warn; dev im lặng", async () => {
+    const { register } = await import("../src/instrumentation");
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    vi.stubEnv("NODE_ENV", "development"); await register();
+    expect(warn).not.toHaveBeenCalled();
+    vi.stubEnv("NODE_ENV", "production"); await register();
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(String(warn.mock.calls[0][0])).toContain("BFF_SHARED_SECRET");
+    vi.stubEnv("BFF_SHARED_SECRET", "x".repeat(16)); warn.mockClear(); await register();
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
   });
 });
