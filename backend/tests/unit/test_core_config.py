@@ -137,3 +137,25 @@ def test_main_skips_the_db_privilege_check_when_withdrawals_disabled(monkeypatch
     monkeypatch.setattr("uvicorn.run", lambda *a, **k: None)
     main_api.main()
     assert called == []
+
+
+def test_subid_keys_current_first_then_previous_and_validated():
+    cur, old1, old2 = "c" * 20, "a" * 20, "b" * 20
+    assert Settings(subid_secret=cur).subid_keys() == (cur,)
+    assert Settings(subid_secret=cur, subid_secret_previous=f"{old1}, {old2}").subid_keys() == (cur, old1, old2)
+    for bad in ({"subid_secret": cur, "subid_secret_previous": "short"},          # khóa cũ quá ngắn
+                {"subid_secret": cur, "subid_secret_previous": cur},               # trùng khóa hiện hành
+                {"subid_secret": cur, "subid_secret_previous": f"{old1},{old1}"},  # trùng nhau
+                {"subid_secret": cur, "subid_secret_previous": ",".join(chr(100 + i) * 20 for i in range(4))},   # > 3
+                {"subid_secret": "short", "subid_secret_previous": old1}):
+        with pytest.raises(ConfigError):
+            Settings(**bad).subid_keys()
+    with pytest.raises(ConfigError):
+        Settings(subid_secret=cur, subid_secret_previous="short").validate_for_serving()     # khởi động từ chối cấu hình sai
+    Settings(subid_secret=cur, subid_secret_previous=old1).validate_for_serving()
+
+
+def test_encode_never_uses_previous_keys():
+    from app.core import subid
+    s = Settings(subid_secret="c" * 20, subid_secret_previous="a" * 20)
+    assert subid.decode(subid.encode("l", 1, 1, s.subid_secret.get_secret_value()), ["x" * 20, "a" * 20]).status == "invalid"

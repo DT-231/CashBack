@@ -166,7 +166,7 @@ Ghi chú: các mục trên là điều kiện **mở cho người ngoài**. Dùn
   - Given hai khách khác IP qua BFF When đăng nhập sai Then bộ đếm tách riêng
 
 ### T-018: Là PO, tôi muốn đổi SUBID_SECRET mà đơn từ link đã phát hành vẫn quy được về user
-- Loại: feature · 3 điểm · Should · Sprint 1 · Owner: claude · Phụ thuộc: T-010. **Chưa làm** (ghi lại 2026-11-27).
+- Loại: feature · 3 điểm · Should · Sprint 1 · Owner: claude · Phụ thuộc: T-010. **Đã làm (2026-11-28, `autopilot/main`)**: `SUBID_SECRET_PREVIOUS`, tối đa 3 khóa cũ, chỉ để giải mã.
 - Bối cảnh: `core/subid` chỉ hỗ trợ MỘT khóa (`SUBID_SECRET`). Đổi hoặc mất khóa thì mọi `utm_content` đã phát hành thành `invalid` (chữ ký sai) và đơn rơi vào hàng đơn mồ côi, không quy được về user.
 - Acceptance criteria:
   - Given `SUBID_SECRET_PREVIOUS` (danh sách khóa cũ) When giải mã sub_id ký bằng khóa cũ Then `ok` (thử khóa hiện tại trước, rồi khóa cũ)

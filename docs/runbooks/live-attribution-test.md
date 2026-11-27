@@ -6,7 +6,7 @@
 
 ## 0. Chuẩn bị
 - `.env` có `SHOPEE_AFF_ID` (id affiliate của PO) và `SUBID_SECRET` (>= 16 ký tự). Không commit `.env`.
-- **Sao lưu `SUBID_SECRET` NGOÀI `.env`** (trình quản lý mật khẩu hoặc ghi chú mã hóa, không để trong repo, không dán vào chat). `core/subid` hiện chỉ biết **một** khóa: nếu bạn **đổi hoặc mất** nó, mọi `utm_content` đã phát hành sẽ báo `invalid` (chữ ký sai) và các đơn từ link đó **không còn quy được về user**, rơi hết vào hàng đơn mồ côi. Chưa có cơ chế xoay khóa (backlog T-018): đừng đổi khóa sau khi đã phát hành link thật. Đặt khóa **một lần**, trước khi tạo link đầu tiên.
+- **Sao lưu `SUBID_SECRET` NGOÀI `.env`** (trình quản lý mật khẩu hoặc ghi chú mã hóa, không để trong repo, không dán vào chat). `core/subid` hiện chỉ biết **một** khóa: nếu bạn **đổi hoặc mất** nó, mọi `utm_content` đã phát hành sẽ báo `invalid` (chữ ký sai) và các đơn từ link đó **không còn quy được về user**, rơi hết vào hàng đơn mồ côi. Xoay khóa (T-018): đặt khóa mới vào `SUBID_SECRET` và chuyển khóa cũ sang `SUBID_SECRET_PREVIOUS` (tối đa 3 khóa cũ, cách nhau dấu phẩy). Link mới luôn ký bằng khóa mới; đơn từ link cũ vẫn quy được về user. Mỗi khóa cũ thêm làm tăng xác suất khớp nhầm chữ ký 3 ký tự thêm ~1/46656 (đã có kiểm tra sở hữu click/link ở bước khớp đơn): chỉ giữ khóa cũ khi còn đơn/link cũ cần quy, và đừng xoay thường xuyên. Mất khóa cũ thì đơn từ link đó thành mồ côi.
 - `make db-up`, rồi chạy API: `cd backend && ../.venv/bin/python -m app.main_api` (tạo link **không gọi Shopee**, `MOCK=1` vẫn đúng).
 
 ## 1. Tạo link bằng API

@@ -6,6 +6,7 @@ Không đọc env lúc import. Biến thật thắng file `.env` (giống hành 
 from __future__ import annotations
 
 from pathlib import Path
+from typing import ClassVar
 
 from pydantic import AliasChoices, Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -31,6 +32,8 @@ class Settings(BaseSettings):
     link_template: str = ""
     sub_id_pad: bool = True
     subid_secret: SecretStr = SecretStr("")  # >= 16 byte, ký sub_id v1
+    # Khóa cũ (cách nhau dấu phẩy) để GIẢI MÃ link đã phát hành trước khi đổi khóa (T-018). Không bao giờ dùng để ký. Tối đa 3.
+    subid_secret_previous: SecretStr = SecretStr("")
 
     # --- Shopee (chỉ integrations/shopee được dùng) ---
     shopee_cookie: SecretStr = Field(
@@ -116,6 +119,21 @@ class Settings(BaseSettings):
         """Tool API bắt buộc có khóa khi đã đặt AGENT_API_KEY hoặc khi lắng nghe ngoài localhost."""
         return bool(self.agent_api_key.get_secret_value()) or not self.is_loopback
 
+    MAX_PREVIOUS_SUBID_KEYS: ClassVar[int] = 3
+
+    def subid_keys(self) -> tuple[str, ...]:
+        """(khóa hiện hành, *khóa cũ) để giải mã. Ném ConfigError nếu thiếu/ngắn/trùng/quá nhiều."""
+        cur = self.subid_secret.get_secret_value()
+        old = [x.strip() for x in self.subid_secret_previous.get_secret_value().split(",") if x.strip()]
+        keys = (cur, *old)
+        if any(len(k.encode()) < 16 for k in keys):
+            raise ConfigError("SUBID_SECRET và SUBID_SECRET_PREVIOUS phải có ít nhất 16 byte mỗi khóa")
+        if len(set(keys)) != len(keys):
+            raise ConfigError("SUBID_SECRET_PREVIOUS không được trùng khóa hiện hành hay trùng nhau")
+        if len(old) > self.MAX_PREVIOUS_SUBID_KEYS:
+            raise ConfigError(f"Tối đa {self.MAX_PREVIOUS_SUBID_KEYS} khóa cũ (mỗi khóa thêm tăng xác suất khớp nhầm chữ ký 3 ký tự)")
+        return keys
+
     def require(self, *names: str) -> None:
         missing = []
         for n in names:
@@ -145,6 +163,8 @@ class Settings(BaseSettings):
         return out
 
     def validate_for_serving(self) -> None:
+        if self.subid_secret_previous.get_secret_value().strip():
+            self.subid_keys()
         if self.withdrawals_enabled and not self.admin_mfa_required:
             raise ConfigError("WITHDRAWALS_ENABLED=1 nhưng ADMIN_MFA_REQUIRED=0: không được bật rút tiền khi admin chưa bắt buộc TOTP")
         if self.withdrawals_enabled:
