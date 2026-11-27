@@ -1,0 +1,197 @@
+"""ShopeeClient với HTTP giả (không gọi mạng). Port từ test_shopee_search.py + test_revenue.py cũ."""
+import pytest
+
+from app.core.config import Settings
+from app.integrations.shopee import build_client
+from app.integrations.shopee.client import ShopeeClient, window
+from app.integrations.shopee.errors import ShopeeBlockedError, ShopeeConfigError, ShopeeError
+from app.integrations.shopee.fake import FakeShopeeClient
+
+
+class Resp:
+    def __init__(self, status=200, data=None, text="", headers=None):
+        self.status_code, self._d, self.text, self.headers = status, data, text, headers or {}
+
+    def json(self):
+        if self._d is None:
+            raise ValueError("html")
+        return self._d
+
+
+def make(cookie="fake=1", ttl=0, **kw):
+    return ShopeeClient(Settings(shopee_cookie=cookie, shopee_cache_ttl=ttl, **kw), sleep=lambda s: None)
+
+
+def patch_get(monkeypatch, fn):
+    monkeypatch.setattr("requests.Session.get", lambda self, *a, **k: fn(*a, **k))
+
+
+# ---------- factory ----------
+def test_build_client_mock_never_uses_network():
+    assert isinstance(build_client(Settings(mock=True)), FakeShopeeClient)
+    assert isinstance(build_client(Settings(mock=False)), ShopeeClient)
+
+
+# ---------- search ----------
+def test_normalize_micro_price_is_divided():
+    it = ShopeeClient._normalize_item({"itemid": 1, "shopid": 2, "name": "n", "price": 69_000_000_000,
+                                       "item_rating": {"rating_star": 4.756}, "image": "abc"})
+    assert it["price"] == 690000 and it["rating"] == 4.76 and it["image"].endswith("/file/abc")
+
+
+def test_normalize_prefers_price_min_and_keeps_small_price():
+    assert ShopeeClient._normalize_item({"itemid": 1, "shopid": 2, "price_min": 150000, "price": 1})["price"] == 150000
+
+
+def test_normalize_heuristic_misreads_large_plain_price():
+    """Audit #8: giá thật 15.000.000đ (không ×1e5) bị chia nhầm. Khóa hành vi hiện tại."""
+    assert ShopeeClient._normalize_item({"itemid": 1, "shopid": 2, "price": 15_000_001})["price"] == 150
+
+
+def test_search_403_retries_then_fails(monkeypatch):
+    calls = []
+    patch_get(monkeypatch, lambda *a, **k: calls.append(1) or Resp(403))
+    r = make().search("x")
+    assert not r["ok"] and "403" in r["error"] and len(calls) == 3
+
+
+def test_search_parses_items_and_clamps_limit(monkeypatch):
+    seen = {}
+    data = {"data": {"items": [{"item_basic": {"itemid": 5, "shopid": 6, "name": "A", "price": 1000}}]}}
+
+    def fake(*a, **k):
+        seen.update(k["params"])
+        return Resp(200, data)
+    patch_get(monkeypatch, fake)
+    r = make().search("x", limit=999)
+    assert r["ok"] and r["items"][0]["item_id"] == 5 and r["source"] == "shopee" and seen["limit"] == 60
+
+
+def test_search_empty_and_shopee_error_and_network_error(monkeypatch):
+    patch_get(monkeypatch, lambda *a, **k: Resp(200, {"data": {"items": []}}))
+    assert "schema" in make().search("x")["error"]
+    patch_get(monkeypatch, lambda *a, **k: Resp(200, {"error": 90309999}))
+    assert "Shopee trả lỗi" in make().search("x")["error"]
+
+    def boom(*a, **k):
+        raise __import__("requests").ConnectionError("down")
+    patch_get(monkeypatch, boom)
+    assert "ConnectionError" in make().search("x")["error"]
+
+
+def test_search_programming_errors_are_not_swallowed(monkeypatch):
+    """Cải thiện #16: chỉ bắt lỗi mạng/JSON, không bắt RuntimeError."""
+    def boom(*a, **k):
+        raise RuntimeError("bug")
+    patch_get(monkeypatch, boom)
+    with pytest.raises(RuntimeError):
+        make().search("x")
+
+
+def test_search_cache_only_stores_successes(monkeypatch):
+    n = []
+    ok = {"data": {"items": [{"itemid": 1, "shopid": 2, "name": "A"}]}}
+    patch_get(monkeypatch, lambda *a, **k: n.append(1) or Resp(200, ok))
+    c = make(ttl=60)
+    c.search("x"); c.search("x")
+    assert len(n) == 1
+    n.clear()
+    patch_get(monkeypatch, lambda *a, **k: n.append(1) or Resp(403))
+    c = make(ttl=60)
+    c.search("y"); c.search("y")
+    assert len(n) == 6        # 3 lần thử × 2 lần gọi, lỗi không bị cache
+
+
+def test_search_sends_cookie_and_secret_headers_but_error_hides_them(monkeypatch):
+    seen = {}
+    patch_get(monkeypatch, lambda *a, **k: seen.update(k) or Resp(403))
+    r = make(shopee_af_ac_enc_dat="enc!").search("x")
+    assert seen["headers"] if "headers" in seen else True
+    assert "fake=1" not in r["error"] and "enc!" not in r["error"]
+
+
+# ---------- dashboard ----------
+def test_window_covers_whole_days_in_vn_time():
+    s, e = window(1)
+    assert 0 < e - s <= 86399
+    s7, _ = window(7)
+    assert 6 * 86400 <= e - s7 <= 7 * 86400 - 1
+
+
+def test_get_requires_cookie():
+    with pytest.raises(ShopeeConfigError, match="SHOPEE_COOKIE"):
+        make(cookie="")._get("/x", {})
+
+
+@pytest.mark.parametrize("resp,exc,match", [
+    (Resp(403), ShopeeBlockedError, "403"),
+    (Resp(500, text="boom"), ShopeeError, "HTTP 500"),
+    (Resp(200, None, "<html>"), ShopeeError, "HTML"),
+    (Resp(200, {"code": 7, "msg": "bad"}), ShopeeError, "code=7"),
+])
+def test_get_error_mapping(monkeypatch, resp, exc, match):
+    patch_get(monkeypatch, lambda *a, **k: resp)
+    with pytest.raises(exc, match=match):
+        make()._get("/x", {})
+
+
+def test_get_retries_network_error_once(monkeypatch):
+    n = []
+
+    def flaky(*a, **k):
+        n.append(1)
+        if len(n) == 1:
+            raise __import__("requests").ConnectionError("down")
+        return Resp(200, {"code": 0, "data": {"ok": 1}})
+    patch_get(monkeypatch, flaky)
+    assert make()._get("/x", {})["data"] == {"ok": 1} and len(n) == 2
+
+
+def test_error_text_never_contains_cookie(monkeypatch):
+    patch_get(monkeypatch, lambda *a, **k: Resp(403))
+    with pytest.raises(ShopeeError) as ei:
+        make(cookie="topsecret=1")._get("/x", {})
+    assert "topsecret" not in str(ei.value)
+
+
+def test_paged_stops_at_total_count_and_max_pages(monkeypatch):
+    pages = []
+
+    def fake(path, params):
+        pages.append(params["page_num"])
+        return {"code": 0, "data": {"total_count": 150, "list": [{"i": 1}] * (100 if params["page_num"] == 1 else 50)}}
+    c = make()
+    monkeypatch.setattr(c, "_get", fake)
+    assert len(c._paged("/x", {})) == 150 and pages == [1, 2]
+    monkeypatch.setattr(c, "_get", lambda p, q: {"data": {"total_count": 10**9, "list": [{"i": 1}]}})
+    assert len(c._paged("/x", {}, max_pages=3)) == 3
+    monkeypatch.setattr(c, "_get", lambda p, q: {"data": {"list": []}})
+    assert c._paged("/x", {}) == []
+
+
+def test_snapshot_uses_one_window_for_all_three_calls(monkeypatch):
+    c = make()
+    seen = []
+    monkeypatch.setattr(c, "_get", lambda path, params: seen.append(dict(params)) or {"data": {"list": []}})
+    snap = c.dashboard_snapshot(3)
+    starts = {p.get("start_time") or p.get("click_time_s") or p.get("purchase_time_s") for p in seen}
+    assert len(seen) == 3 and starts == {snap.window[0]}
+
+
+def test_check_link_reads_location(monkeypatch):
+    monkeypatch.setattr("requests.get", lambda *a, **k: Resp(301, headers={
+        "Location": "https://shopee.vn/product/1/2?utm_source=an_1&utm_content=x&uls_trackid=abc"}))
+    r = make().check_link("https://shopee.vn/universal-link/product/1/2")
+    assert r["status"] == 301 and r["tracked"] and r["utm_source"] == "an_1" and r["final_host"] == "shopee.vn"
+
+
+# ---------- fake ----------
+def test_fake_client_is_offline_and_shaped():
+    f = FakeShopeeClient()
+    r = f.search("x", limit=2)
+    assert r["ok"] and r["source"] == "mock" and len(r["items"]) == 2
+    assert len(f.search("x", limit=0)["items"]) == 1 and len(f.search("x", limit=999)["items"]) == 5
+    f.search("x", 1)["items"][0]["name"] = "changed"
+    assert f.search("x", 1)["items"][0]["name"] != "changed"
+    snap = f.dashboard_snapshot(7)
+    assert snap.daily["clicks_sum"] == 14 and len(snap.orders) == 2

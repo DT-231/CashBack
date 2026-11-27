@@ -6,7 +6,7 @@ import pytest
 
 import revenue
 
-FX = Path(__file__).resolve().parents[1] / "fixtures"
+FX = Path(__file__).resolve().parents[2] / "app" / "integrations" / "shopee" / "fixtures"
 
 
 def load(name):

@@ -39,6 +39,7 @@ class Settings(BaseSettings):
     shopee_proxy: str = ""
     shopee_ua: str = ""
     shopee_search_url: str = "https://shopee.vn/api/v4/search/search_items"
+    shopee_cache_ttl: int = 300             # giây; 0 = tắt cache search/dashboard
     pw_state: str = ""
     headless: bool = True
 
