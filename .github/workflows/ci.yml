@@ -1,0 +1,40 @@
+name: ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: cashback
+          POSTGRES_PASSWORD: cashback_dev
+          POSTGRES_DB: cashback
+        ports: ["5433:5432"]
+        options: >-
+          --health-cmd "pg_isready -U cashback -d cashback" --health-interval 3s --health-timeout 3s --health-retries 20
+    env:
+      MOCK: "1"
+      DATABASE_URL: postgresql+psycopg://cashback:cashback_dev@127.0.0.1:5433/cashback
+      SEED_PASSWORD: ci-only-password
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: backend/pyproject.toml
+      - run: pip install -e "backend[dev]"
+      - name: Lint
+        run: ruff check --config backend/pyproject.toml .
+      - name: Migrate and seed
+        working-directory: backend
+        run: |
+          alembic upgrade head
+          python scripts/seed.py
+      - name: Test (unit, contract, integration, e2e)
+        run: pytest backend/tests

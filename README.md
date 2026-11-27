@@ -2,7 +2,7 @@
 
 > Web hoàn tiền (cashback) cho người mua trên Shopee Việt Nam: dán link sản phẩm → nhận link affiliate → mua hàng → nhận lại một phần hoa hồng vào ví và rút về. Kèm một Tool API để một AI agent tự tìm sản phẩm và tạo link theo từng bài đăng fanpage, rồi học xem ngành nào ra tiền.
 
-**Trạng thái:** đang phát triển (Sprint 0). Đã có service tạo link, codec `sub_id` có chữ ký và bộ tài liệu thiết kế; web, ví và đồng bộ đơn đang được xây.
+**Trạng thái:** đang phát triển (Sprint 0). Đã có backend FastAPI + Postgres (Tool API cho AI, tạo link, tìm sản phẩm, codec `sub_id` có chữ ký, báo cáo doanh thu) và bộ tài liệu thiết kế; web, ví và đồng bộ đơn đang được xây. Backend vừa được tái cấu trúc, xem [`docs/refactor/`](docs/refactor/04-ket-qua.md).
 
 ## Bài toán
 
@@ -43,26 +43,61 @@ flowchart LR
 
 ## Công nghệ
 
-Python (FastAPI, SQLAlchemy/Alembic), PostgreSQL, Next.js, Docker Compose, Cloudflare (Pages/Workers/Tunnel), GitHub Actions.
-Phần hiện có dùng Python chuẩn và SQLite; phần còn lại là kế hoạch trong [`docs/`](docs/).
+Python (FastAPI, SQLAlchemy/Alembic), PostgreSQL, Docker Compose, GitHub Actions. Kế hoạch: Next.js, Cloudflare (Pages/Workers/Tunnel); xem [`docs/`](docs/).
+
+## Chạy trong 5 phút
+
+```bash
+make venv                                   # một lần: tạo .venv, cài backend
+cp .env.example .env                        # rồi đặt SHOPEE_AFF_ID; để MOCK=1 khi phát triển
+make test && make lint                      # test + lint (mặc định MOCK=1, không gọi Shopee)
+make db-up && make test-db                  # Postgres dev (Docker) + test schema/migration/Tool API
+cd backend && MOCK=1 ../.venv/bin/python -m app.main_api          # API tại http://127.0.0.1:8080
+curl "http://127.0.0.1:8080/api/search?keyword=noi%20chien&limit=3&sub=fb01"
+```
+
+| Lệnh | Việc |
+|---|---|
+| `make test` / `make cov` | toàn bộ test / coverage `backend/app` |
+| `make lint` | ruff |
+| `make db-up` / `make test-db` | Postgres + migrate + seed / test cần DB (tự skip nếu không có DB) |
 
 ## Cấu trúc thư mục
 
 ```
-packages/core/       # codec sub_id v1 (đã có, có test)
-docs/                # phân tích, kiến trúc, ERD, API, rủi ro, backlog, kế hoạch sprint
-docs/legacy/         # tài liệu của service tạo link ban đầu
-backlog/issues.csv   # backlog Scrum (41 story, import được vào GitHub Projects)
-*.py                 # service tạo link + đọc doanh thu ban đầu (sẽ chuyển vào services/link-api)
+backend/
+  app/
+    main_api.py            # entrypoint FastAPI: chỉ gắn router + middleware
+    legacy_api.py          # /api/search, /api/link cũ (lớp tương thích, sắp bỏ)
+    core/                  # dùng chung, KHÔNG nghiệp vụ: config, logging, errors, db, money, subid, cache
+    modules/               # mỗi thư mục = 1 chức năng: links, products, ai_posts, agent_auth, reports (+ _template)
+    integrations/shopee/   # NƠI DUY NHẤT gọi Shopee (client, fake cho MOCK=1, browser, fixtures)
+  migrations/              # Alembic, mỗi migration có downgrade
+  scripts/                 # revenue_report, verify_link, feed_import, login_save_state, seed, example_agent
+  tools/                   # schema tool cho AI (OpenAI/Gemini)
+  tests/                   # unit, integration (Postgres), contract (golden + kiến trúc), e2e (CLI)
+infra/                     # docker-compose (db, migrate, seed)
+docs/                      # thiết kế (00–13), adr/, runbooks/, refactor/
+backlog/                   # issues.csv, tasks/<id>.md
 ```
 
-## Chạy test
+## Muốn sửa X thì vào đâu
 
-```bash
-python3 test_offline.py                      # service tạo link (mock, không gọi mạng)
-python3 test_make_link_regression.py         # khóa hành vi sinh link affiliate
-PYTHONPATH=packages/core python3 -m unittest discover -s packages/core/tests   # codec sub_id
-```
+| Muốn sửa | Vào |
+|---|---|
+| Cách sinh link affiliate (utm, template) | `backend/app/modules/links/affiliate_link.py` (khóa bởi golden test, **không đổi hành vi**) |
+| Quy ước `sub_id` | `backend/app/core/subid.py` (cần được giao rõ) |
+| Quy đổi tiền, làm tròn | `backend/app/core/money.py` |
+| Nguồn tìm sản phẩm (feed/api/browser) | `backend/app/modules/products/` |
+| Gọi Shopee, cookie, proxy, cache | `backend/app/integrations/shopee/client.py` |
+| Tool API cho Muse AI (key, link theo bài) | `backend/app/modules/{agent_auth,ai_posts}/` |
+| Báo cáo doanh thu | `backend/app/modules/reports/` + `backend/scripts/revenue_report.py` |
+| Biến môi trường mới | `backend/app/core/config.py` **và** `.env.example` |
+| Bảng/index mới | `backend/migrations/versions/` (có `downgrade`) |
+| Thêm chức năng | [`docs/refactor/how-to-add-feature.md`](docs/refactor/how-to-add-feature.md) |
+| Debug | [`docs/refactor/how-to-debug.md`](docs/refactor/how-to-debug.md), [`docs/runbooks/`](docs/runbooks/) |
+
+Luật phụ thuộc (CI ép bằng `tests/contract/test_architecture.py`): `api → service → repository`; chỉ `integrations/shopee` gọi Shopee; chỉ `modules/wallet` ghi ví; `os.environ` chỉ ở `core/config.py`.
 
 ## Tài liệu thiết kế
 
