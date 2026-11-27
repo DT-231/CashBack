@@ -5,11 +5,14 @@ import argparse
 import json
 import sys
 
+from pydantic import SecretStr
+
 from app.core.config import ConfigError, load_settings
 from app.core.db import make_engine
 from app.core.logging import configure_logging
 from app.integrations.shopee import build_client
 from app.modules.orders.service import OrderSync
+from app.modules.shopee_session.service import ShopeeSessionService
 from app.modules.wallet.service import WalletService
 
 
@@ -25,7 +28,12 @@ def main(argv=None) -> int:
         engine = make_engine(s)
         out = {}
         if a.command in ("sync-once", "run-once"):
-            sync = OrderSync(s, engine, build_client(s)).run(a.days)
+            sessions = ShopeeSessionService(s, engine)
+            cookie = None if s.mock else sessions.load_cookie()      # cookie admin dán (mã hóa trong DB) thắng biến môi trường
+            live = s.model_copy(update={"shopee_cookie": SecretStr(cookie)}) if cookie else s
+            sync = OrderSync(s, engine, build_client(live)).run(a.days)
+            if cookie:
+                sessions.record_result(sync.result, sync.blocked)
             out["sync"] = sync.__dict__
         if a.command in ("settle-once", "run-once"):
             out["settle"] = WalletService(s, engine).settle().__dict__

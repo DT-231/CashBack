@@ -85,3 +85,8 @@ class BankCipher:
 class MfaCipher(BankCipher):
     """Bí mật TOTP của người dùng (cùng khóa, khác AAD)."""
     purpose = "mfa_secret"
+
+
+class ShopeeCookieCipher(BankCipher):
+    """Cookie phiên Shopee Affiliate (cùng khóa, khác AAD). Chủ sở hữu cố định = 1 (một phiên dùng chung)."""
+    purpose = "shopee_cookie"
