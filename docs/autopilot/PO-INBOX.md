@@ -11,3 +11,4 @@
 | 7 | Sao lưu `BANK_ENC_KEY` ngoài `.env` (hai nơi); bật TOTP cho tài khoản admin thật | Mất khóa = không trả được cho ai | Không được bật rút tiền thật |
 | 8 | Duyệt và merge `autopilot/main` vào `main` | Autopilot không sửa `main` | Mọi thay đổi chỉ nằm ở `autopilot/main` |
 | 9 | **Gỡ `.claude/settings.json` khỏi `autopilot/main` trước khi merge vào `main`** (`git rm --cached .claude/settings.json`) | Commit `Merge task/T-018` vô tình kéo theo file cấu hình plugin cục bộ (do `git add -A` khi plugin vừa cài). Autopilot không được sửa `.claude/` nên không tự gỡ; nội dung chưa kiểm có secret hay không | Cấu hình cục bộ lọt vào repo public |
+| 10 | Đặt lịch sao lưu hằng ngày (cron) theo `docs/runbooks/backup.md`, tạo `BACKUP_ENC_KEY` riêng và cất ngoài máy; chọn nơi lưu bản sao thứ hai | Script đã có và đã thử trên DB dev; cron/khóa là việc ở máy của bạn | Chưa có sao lưu tự động: mất đĩa là mất sổ cái |
