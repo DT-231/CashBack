@@ -35,11 +35,22 @@ def test_capped_never_exceeded_and_missing_capped_uses_items():
     assert normalize_row(r)[0].commission_micro == 403_750_000
 
 
-def test_multi_order_row_sums_items_and_ignores_row_level_cap():
+def test_multi_order_row_without_cap_pressure_keeps_item_sums():
     two = {"order_sn": "SN2", "items": [{"item_commission": 5, "qty": 1}]}
     one = {"order_sn": "SN3", "items": [{"item_commission": 7, "qty": 1}]}
-    got = {o.order_sn: o.commission_micro for o in normalize_row(row(capped_commission=1, orders=[two, one]))}
+    got = {o.order_sn: o.commission_micro for o in normalize_row(row(capped_commission=12, orders=[two, one]))}
     assert got == {"SN2": 5, "SN3": 7}
+
+
+def test_multi_order_row_over_the_cap_is_shared_proportionally_rounded_down():
+    a = {"order_sn": "A", "items": [{"item_commission": 600, "qty": 1}]}
+    b = {"order_sn": "B", "items": [{"item_commission": 400, "qty": 1}]}
+    got = {o.order_sn: o.commission_micro for o in normalize_row(row(capped_commission=500, orders=[a, b]))}
+    assert got == {"A": 300, "B": 200} and sum(got.values()) <= 500
+    odd = {o.order_sn: o.commission_micro for o in normalize_row(row(capped_commission=1, orders=[a, b]))}
+    assert sum(odd.values()) <= 1                      # làm tròn xuống: không bao giờ vượt hạn mức
+    zero = normalize_row(row(capped_commission=0, orders=[a, b]))
+    assert [o.commission_micro for o in zero] == [0, 0]
 
 
 @pytest.mark.parametrize("raw,expected", [("COMPLETED", "COMPLETED"), ("completed", "COMPLETED"), ("Cancelled", "CANCELLED"),
@@ -76,3 +87,27 @@ def test_garbage_is_safe():
     assert normalize_row({}) == [] and normalize_row({"orders": [{"items": []}]}) == []
     [o] = normalize_row({"orders": [{"order_sn": "S", "items": [{"item_commission": "abc", "qty": None}]}]})
     assert o.commission_micro == 0 and o.items[0].qty == 1 and o.utm_content == ""
+
+
+def test_merge_same_order_sn_rows_adds_commission_and_items():
+    from app.modules.orders.normalize import merge_orders
+    r1 = row(utm_content="", orders=[{"order_sn": "M", "items": [{"item_commission": 100, "qty": 1}]}], capped_commission=100)
+    r2 = row(utm_content="1u-a-b-xyz-", capped_commission=59,
+             orders=[{"order_sn": "M", "items": [{"item_commission": 50, "qty": 1}]},
+                     {"order_sn": "Z", "items": [{"item_commission": 9, "qty": 1}]}])
+    merged = merge_orders([o for r in (r1, r2) for o in normalize_row(r)])
+    by = {o.order_sn: o for o in merged}
+    assert list(by) == ["M", "Z"] and by["M"].commission_micro == 150 and len(by["M"].items) == 2
+    assert by["M"].utm_content == "1u-a-b-xyz-" and by["Z"].commission_micro == 9   # lấy utm không rỗng đầu tiên
+
+
+def test_merge_status_is_conservative():
+    from app.modules.orders.normalize import merge_orders
+
+    def o(status):
+        return normalize_row(row(status=status, orders=[{"order_sn": "S", "items": [{"item_commission": 1}]}]))[0]
+    assert merge_orders([o("COMPLETED"), o("COMPLETED")])[0].status == "COMPLETED"
+    assert merge_orders([o("COMPLETED"), o("PENDING")])[0].status == "PENDING"
+    assert merge_orders([o("CANCELLED"), o("RETURNED")])[0].status == "RETURNED"
+    assert merge_orders([o("CANCELLED"), o("CANCELLED")])[0].status == "CANCELLED"
+    assert merge_orders([o("COMPLETED"), o("CANCELLED")])[0].status == "PENDING"

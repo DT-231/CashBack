@@ -37,3 +37,8 @@ class AiPostService:
             sub_id = subid.encode("p", post_id, int(req.page_code, 36), secret)
             repository.set_sub_id(conn, post_id, sub_id)
         return self._response(post_id, sub_id, req.shop_id, req.item_id)
+
+    def post_exists(self, post_id: int) -> bool:
+        """Dùng cho khớp đơn: bài đăng này có thật không."""
+        with self.engine.connect() as conn:
+            return repository.exists(conn, post_id)

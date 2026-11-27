@@ -59,7 +59,7 @@ class Settings(BaseSettings):
     agent_api_key: SecretStr = SecretStr("")  # khóa khởi tạo cho Tool API; thêm khóa khác qua bảng agent_keys
 
     # --- đồng bộ đơn ---
-    sync_days: int = 60                      # quét lại cửa sổ này mỗi lần để bắt đơn đổi trạng thái
+    sync_days: int = Field(default=60, ge=1, le=366)   # quét lại cửa sổ này để bắt đơn đổi trạng thái
 
     # --- click (/go/{code}) ---
     ip_salt: SecretStr = SecretStr("")       # khóa HMAC băm IP/User-Agent; rỗng = KHÔNG lưu ip_hash/ua_hash

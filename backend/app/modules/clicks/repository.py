@@ -13,3 +13,7 @@ def insert_click(conn: Connection, click_id: int, link_id: int, sub_id: str, ip_
                  ua_hash: str | None) -> None:
     conn.execute(text("INSERT INTO clicks(id, link_id, sub_id, ip_hash, ua_hash) VALUES (:id, :l, :s, :ip, :ua)"),
                  {"id": click_id, "l": link_id, "s": sub_id, "ip": ip_hash, "ua": ua_hash})
+
+
+def link_of_click(conn: Connection, click_id: int) -> int | None:
+    return conn.execute(text("SELECT link_id FROM clicks WHERE id = :i"), {"i": click_id}).scalar_one_or_none()

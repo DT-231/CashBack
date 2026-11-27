@@ -27,3 +27,7 @@ def get_by_key(conn: Connection, post_key: str):
 
 def set_sub_id(conn: Connection, post_id: int, sub_id: str) -> None:
     conn.execute(text("UPDATE posts SET sub_id = :s WHERE id = :i"), {"s": sub_id, "i": post_id})
+
+
+def exists(conn: Connection, post_id: int) -> bool:
+    return conn.execute(text("SELECT 1 FROM posts WHERE id = :i"), {"i": post_id}).first() is not None

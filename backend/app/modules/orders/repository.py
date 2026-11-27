@@ -1,7 +1,4 @@
-"""SQL của orders. Nhận Connection đang trong transaction; không commit.
-
-Lưu ý: `exists` đọc (chỉ đọc) bảng clicks/links/posts của module khác để xác minh `sub_id` — không ghi gì ở đó.
-"""
+"""SQL của orders. Nhận Connection đang trong transaction; không commit. Chỉ đụng bảng của chính orders."""
 from __future__ import annotations
 
 import json
@@ -9,29 +6,32 @@ import json
 from sqlalchemy import Connection, text
 
 
-def exists(conn: Connection, kind: str, owner: int, ref: int) -> bool:
-    """`sub_id` đã có chữ ký hợp lệ, nhưng vẫn phải khớp dữ liệu: click thuộc đúng user, link thuộc đúng user, post có thật."""
-    sql = {
-        "click": "SELECT 1 FROM clicks c JOIN links l ON l.id = c.link_id WHERE c.id = :r AND l.user_id = :o",
-        "link": "SELECT 1 FROM links WHERE id = :r AND user_id = :o",
-        "post": "SELECT 1 FROM posts WHERE id = :o",
-    }[kind]
-    return conn.execute(text(sql), {"o": owner, "r": ref}).first() is not None
+LOCK_KEY = 74_121_001   # khóa advisory: chỉ một tiến trình đồng bộ đơn tại một thời điểm
+
+
+def try_lock(conn: Connection) -> bool:
+    return bool(conn.execute(text("SELECT pg_try_advisory_lock(:k)"), {"k": LOCK_KEY}).scalar())
+
+
+def unlock(conn: Connection) -> None:
+    conn.execute(text("SELECT pg_advisory_unlock(:k)"), {"k": LOCK_KEY})
 
 
 def get_status(conn: Connection, order_sn: str):
-    return conn.execute(text("SELECT id, status, completed_at FROM shopee_orders WHERE order_sn = :s"),
-                        {"s": order_sn}).mappings().first()
+    return conn.execute(text("SELECT id, status, completed_at, user_id, post_id FROM shopee_orders "
+                             "WHERE order_sn = :s"), {"s": order_sn}).mappings().first()
 
 
-def insert_order(conn: Connection, o, attr, status: str, completed_at) -> int:
+def insert_order(conn: Connection, o, attr, status: str, completed_at) -> int | None:
+    """None nếu `order_sn` đã tồn tại (chạy chồng/đua): caller đọc lại rồi đi đường cập nhật."""
     return conn.execute(text(
         "INSERT INTO shopee_orders(order_sn, raw_status, status, utm_content, source_type, user_id, click_id, post_id, "
         "commission_micro, purchase_time, completed_at, raw) "
-        "VALUES (:sn, :rs, :st, :utm, :src, :u, :c, :p, :com, :pt, :ca, CAST(:raw AS jsonb)) RETURNING id"),
+        "VALUES (:sn, :rs, :st, :utm, :src, :u, :c, :p, :com, :pt, :ca, CAST(:raw AS jsonb)) "
+        "ON CONFLICT (order_sn) DO NOTHING RETURNING id"),
         {"sn": o.order_sn, "rs": o.raw_status, "st": status, "utm": o.utm_content, "src": attr.source_type,
          "u": attr.user_id, "c": attr.click_id, "p": attr.post_id, "com": o.commission_micro, "pt": o.purchase_time,
-         "ca": completed_at, "raw": json.dumps(o.raw, ensure_ascii=False, default=str)}).scalar_one()
+         "ca": completed_at, "raw": json.dumps(o.raw, ensure_ascii=False, default=str)}).scalar_one_or_none()
 
 
 def update_order(conn: Connection, order_id: int, o, status: str, completed_at) -> None:
@@ -43,6 +43,18 @@ def update_order(conn: Connection, order_id: int, o, status: str, completed_at) 
         "updated_at = now() WHERE id = :i"),
         {"rs": o.raw_status, "st": status, "com": o.commission_micro, "pt": o.purchase_time, "ca": completed_at,
          "raw": json.dumps(o.raw, ensure_ascii=False, default=str), "i": order_id})
+
+
+def set_attribution(conn: Connection, order_id: int, utm_content: str, attr) -> None:
+    """Chỉ dùng cho đơn CHƯA ai nhận (user_id và post_id còn NULL): đơn mồ côi nay đã khớp được."""
+    conn.execute(text("UPDATE shopee_orders SET utm_content = :utm, source_type = :src, user_id = :u, click_id = :c, "
+                      "post_id = :p WHERE id = :i AND user_id IS NULL AND post_id IS NULL"),
+                 {"utm": utm_content, "src": attr.source_type, "u": attr.user_id, "c": attr.click_id,
+                  "p": attr.post_id, "i": order_id})
+
+
+def delete_orphan(conn: Connection, order_id: int) -> None:
+    conn.execute(text("DELETE FROM orphan_orders WHERE order_id = :i"), {"i": order_id})
 
 
 def replace_items(conn: Connection, order_id: int, items) -> None:

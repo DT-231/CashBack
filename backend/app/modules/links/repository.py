@@ -37,3 +37,8 @@ def get_by_code(conn: Connection, code: str):
     return conn.execute(text(
         "SELECT l.id AS link_id, l.user_id, p.shop_id, p.item_id, (u.status = 'active') AS user_active "
         "FROM links l JOIN products p ON p.id = l.product_id JOIN users u ON u.id = l.user_id WHERE l.code = :c"), {"c": code}).mappings().first()
+
+
+def link_belongs_to(conn: Connection, user_id: int, link_id: int) -> bool:
+    return conn.execute(text("SELECT 1 FROM links WHERE id = :l AND user_id = :u"),
+                        {"l": link_id, "u": user_id}).first() is not None

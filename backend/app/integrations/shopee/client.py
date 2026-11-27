@@ -255,9 +255,12 @@ class ShopeeClient:
     def order_batch(self, days: int = 60) -> OrderBatch:
         """Đơn trong `days` ngày (theo purchase_time), kèm cờ complete. Không cache: dùng cho đồng bộ tiền."""
         s, e = window(days)
-        rows, complete = self._paged_ex("/api/v3/report/list",
-                                        {"purchase_time_s": s, "purchase_time_e": e, "version": 1})
+        rows, complete = self._orders_in(s, e)
         return OrderBatch((s, e), rows, complete)
+
+    def _orders_in(self, s: int, e: int) -> tuple[list[dict], bool]:
+        """Nơi DUY NHẤT dựng truy vấn /api/v3/report/list."""
+        return self._paged_ex("/api/v3/report/list", {"purchase_time_s": s, "purchase_time_e": e, "version": 1})
 
     def dashboard_snapshot(self, days: int = 7) -> DashboardSnapshot:
         """Một cửa sổ thời gian duy nhất cho cả 3 nguồn (tránh lệch mốc qua nửa đêm); có cache TTL."""
@@ -267,7 +270,7 @@ class ShopeeClient:
         s, e = window(days)
         daily = self._get("/api/v3/dashboard/detail", {"start_time": s, "end_time": e}).get("data") or {}
         clicks = self._paged("/api/v1/click_report/list", {"click_time_s": s, "click_time_e": e})
-        orders = self._paged("/api/v3/report/list", {"purchase_time_s": s, "purchase_time_e": e, "version": 1})
+        orders, _ = self._orders_in(s, e)
         return DashboardSnapshot((s, e), daily, clicks, orders)
 
     # ---------- kiểm tra link ----------
