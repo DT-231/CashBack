@@ -61,6 +61,7 @@ Ghi chú: các mục trên là điều kiện **mở cho người ngoài**. Dùn
   - Given fixture HAR When parse Then ra đúng 1 đơn 4.037,5đ
 
 ### T-060: Là admin, tôi muốn backup tự động mỗi ngày và test khôi phục
+- **Đã làm (2026-11-28, `autopilot/main`)**: script mã hóa + xoay vòng + khôi phục + runbook; đã thử đầu-cuối trên DB dev. **Lịch chạy thật (cron) và nơi lưu thứ hai: việc của PO** (xem `docs/autopilot/PO-INBOX.md`).
 - Loại: feature · 3 điểm · Must · Sprint 6 · Owner: codex · Phụ thuộc: T-002
 - Acceptance criteria:
   - Given 03:00 When job Then pg_dump nén mã hóa lưu ổ ngoài + Drive
