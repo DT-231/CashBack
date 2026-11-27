@@ -37,10 +37,23 @@ def consume_refresh(conn: Connection, token_hash: str) -> int | None:
                         {"h": token_hash}).scalar()
 
 
-def owner_of_revoked(conn: Connection, token_hash: str) -> int | None:
-    """User sở hữu token đã bị thu hồi (dấu hiệu token bị dùng lại/đánh cắp)."""
-    return conn.execute(text("SELECT user_id FROM refresh_tokens WHERE token_hash = :h AND revoked_at IS NOT NULL"),
-                        {"h": token_hash}).scalar()
+def owner_of_rotated(conn: Connection, token_hash: str, grace_seconds: int) -> int | None:
+    """User sở hữu token đã bị xoay vòng QUÁ `grace_seconds` giây trước mà vẫn bị đem dùng lại (dấu hiệu bị đánh cắp).
+    Trong khoảng ân hạn (hai tab refresh cùng lúc, retry mạng) thì coi là va chạm vô hại, không phải trộm."""
+    return conn.execute(text("SELECT user_id FROM refresh_tokens WHERE token_hash = :h AND revoked_at IS NOT NULL "
+                             "AND revoked_at < now() - make_interval(secs => :g)"),
+                        {"h": token_hash, "g": grace_seconds}).scalar()
+
+
+def delete_all(conn: Connection, user_id: int) -> None:
+    """Đăng xuất: xóa hẳn (không để lại dấu vết 'đã thu hồi' khiến token cũ bị nhầm là bị trộm)."""
+    conn.execute(text("DELETE FROM refresh_tokens WHERE user_id = :u"), {"u": user_id})
+
+
+def prune(conn: Connection, user_id: int, older_than_days: int = 30) -> None:
+    """Dọn token hết hạn hoặc đã thu hồi từ lâu của user (gọi khi đăng nhập, không cần job riêng)."""
+    conn.execute(text("DELETE FROM refresh_tokens WHERE user_id = :u AND (expires_at < now() - make_interval(days => :d) "
+                      "OR revoked_at < now() - make_interval(days => :d))"), {"u": user_id, "d": older_than_days})
 
 
 def revoke_all(conn: Connection, user_id: int) -> None:

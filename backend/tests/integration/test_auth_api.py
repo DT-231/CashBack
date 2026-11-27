@@ -94,16 +94,57 @@ def test_me_requires_valid_token(api):
     assert api.get("/api/v1/auth/me", headers={"Authorization": "Basic abc"}).status_code == 401
 
 
-def test_refresh_rotates_and_reuse_revokes_everything(api):
+def age_revoked(pg, e, seconds=60):
+    """Lùi thời điểm thu hồi để vượt khoảng ân hạn, giả lập 'đã xoay vòng từ lâu'."""
+    with pg.begin() as c:
+        c.execute(text("UPDATE refresh_tokens SET revoked_at = revoked_at - make_interval(secs => :s) "
+                       "WHERE revoked_at IS NOT NULL AND user_id = (SELECT id FROM users WHERE email = :e)"),
+                  {"s": seconds, "e": e})
+
+
+def test_refresh_rotates_and_old_reuse_revokes_everything(api, pg):
     e, _ = register(api)
     t1 = login(api, e).json()
     t2 = api.post("/api/v1/auth/refresh", json={"refresh_token": t1["refresh_token"]})
     assert t2.status_code == 200 and t2.json()["refresh_token"] != t1["refresh_token"]
-    # dùng lại token cũ: bị từ chối VÀ phiên mới cũng bị thu hồi
+    age_revoked(pg, e)
+    # dùng lại token cũ đã xoay vòng từ lâu: bị từ chối VÀ phiên mới cũng bị thu hồi
     reuse = api.post("/api/v1/auth/refresh", json={"refresh_token": t1["refresh_token"]})
     assert reuse.status_code == 401 and reuse.json()["error"]["code"] == "invalid_refresh"
     after = api.post("/api/v1/auth/refresh", json={"refresh_token": t2.json()["refresh_token"]})
     assert after.status_code == 401
+
+
+def test_double_refresh_race_does_not_kill_the_session(api):
+    """Hai tab/retry dùng cùng một token gần như đồng thời: người thua nhận 401 nhưng phiên thắng vẫn sống."""
+    e, _ = register(api)
+    t1 = login(api, e).json()
+    winner = api.post("/api/v1/auth/refresh", json={"refresh_token": t1["refresh_token"]})
+    loser = api.post("/api/v1/auth/refresh", json={"refresh_token": t1["refresh_token"]})
+    assert winner.status_code == 200 and loser.status_code == 401
+    assert api.post("/api/v1/auth/refresh", json={"refresh_token": winner.json()["refresh_token"]}).status_code == 200
+
+
+def test_stale_token_after_logout_does_not_kill_new_login(api, pg):
+    e, _ = register(api)
+    old = login(api, e).json()
+    assert api.post("/api/v1/auth/logout", headers=auth(old["access_token"])).status_code == 204
+    fresh = login(api, e).json()
+    assert api.post("/api/v1/auth/refresh", json={"refresh_token": old["refresh_token"]}).status_code == 401
+    assert api.post("/api/v1/auth/refresh", json={"refresh_token": fresh["refresh_token"]}).status_code == 200
+
+
+def test_login_prunes_long_dead_tokens(api, pg):
+    e, _ = register(api)
+    login(api, e)
+    with pg.begin() as c:
+        c.execute(text("UPDATE refresh_tokens SET expires_at = now() - interval '40 days'"
+                       " WHERE user_id = (SELECT id FROM users WHERE email = :e)"), {"e": e})
+    login(api, e)
+    with pg.connect() as c:
+        n = c.execute(text("SELECT count(*) FROM refresh_tokens WHERE user_id = (SELECT id FROM users WHERE email = :e)"),
+                      {"e": e}).scalar_one()
+    assert n == 1
 
 
 def test_refresh_expired_or_unknown_is_rejected(api, pg):

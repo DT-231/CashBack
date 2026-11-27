@@ -11,6 +11,8 @@ from app.modules.auth.errors import (AccountLocked, EmailTaken, EmailUnverified,
                                      InvalidRefresh)
 from app.modules.auth.schemas import TokenOut, UserOut
 
+REUSE_GRACE_SECONDS = 10   # hai request refresh cùng token trong khoảng này không bị coi là trộm
+
 
 class AuthService:
     def __init__(self, settings: Settings, engine: Engine):
@@ -41,6 +43,7 @@ class AuthService:
                 raise AccountLocked("Tài khoản đã bị khóa")
             if u["status"] != "active":
                 raise EmailUnverified("Vui lòng xác minh email trước khi đăng nhập")
+            repository.prune(conn, u["id"])
             return self._issue(conn, u["id"], u["role"])
 
     def refresh(self, raw_token: str) -> TokenOut:
@@ -53,14 +56,14 @@ class AuthService:
                 if u and u["status"] == "active":
                     return self._issue(conn, uid, u["role"])
             else:
-                reused_by = repository.owner_of_revoked(conn, token_hash)
+                reused_by = repository.owner_of_rotated(conn, token_hash, REUSE_GRACE_SECONDS)
                 if reused_by is not None:       # token đã dùng mà vẫn bị đem ra dùng lại: thu hồi mọi phiên
                     repository.revoke_all(conn, reused_by)
         raise InvalidRefresh("Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại")
 
     def logout_all(self, user_id: int) -> None:
         with self.engine.begin() as conn:
-            repository.revoke_all(conn, user_id)
+            repository.delete_all(conn, user_id)
 
     def user_from_token(self, token: str | None) -> UserOut | None:
         claims = security.decode_access_token(self.s, token) if token else None
