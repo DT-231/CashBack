@@ -119,7 +119,11 @@ def backup(dsn: str, out: Path, key: bytes, keep: int, now: datetime | None = No
         _dump_to(plain, args, env)
         digest = encrypt_file(plain, target, key)
         os.chmod(target, 0o600)
-        if decrypt_file(target, None, key) != digest:                 # kiểm ngay: bản vừa ghi phải giải mã được
+        try:
+            ok = decrypt_file(target, None, key) == digest            # kiểm ngay: bản vừa ghi phải giải mã được
+        except BackupError:
+            ok = False
+        if not ok:
             target.unlink()
             raise BackupError("bản sao lưu vừa ghi không giải mã đúng")
     rotate(out, keep)
