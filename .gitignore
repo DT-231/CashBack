@@ -6,6 +6,13 @@
 state.json
 cookies*.txt
 *.har
+*.har.json
+*.redacted.har
+har/
+hars/
+raw/
+raw-reports/
+live-test-data/
 data/*.db
 data/*.sqlite*
 __pycache__/
