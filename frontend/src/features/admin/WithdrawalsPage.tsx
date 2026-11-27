@@ -42,7 +42,8 @@ export default function WithdrawalsPage() {
   const [account, setAccount] = useState<PayoutAccountOut | null>(null);
   const [accountNote, setAccountNote] = useState("");
   const [busyId, setBusyId] = useState<number | null>(null);
-  const [reasons, setReasons] = useState<Record<number, string>>({});
+  const [rejectReasons, setRejectReasons] = useState<Record<number, string>>({});
+  const [failReasons, setFailReasons] = useState<Record<number, string>>({});
   const [providerRefs, setProviderRefs] = useState<Record<number, string>>({});
   const [exporting, setExporting] = useState(false);
   const [exportMessage, setExportMessage] = useState("");
@@ -97,10 +98,11 @@ export default function WithdrawalsPage() {
   }
   async function submitReason(event: FormEvent<HTMLFormElement>, row: AdminWithdrawalOut, kind: "reject" | "fail") {
     event.preventDefault();
-    const reason = reasons[row.id] ?? "";
+    const reason = (kind === "reject" ? rejectReasons : failReasons)[row.id] ?? "";
     if (reason.trim().length < 3 || lock.current) return;
     await act(row.id, () => kind === "reject" ? api.adminReject(row.id, reason) : api.adminFail(row.id, reason));
-    setReasons((current) => ({ ...current, [row.id]: "" }));
+    if (kind === "reject") setRejectReasons((current) => ({ ...current, [row.id]: "" }));
+    else setFailReasons((current) => ({ ...current, [row.id]: "" }));
   }
   async function submitPaid(event: FormEvent<HTMLFormElement>, row: AdminWithdrawalOut) {
     event.preventDefault();
@@ -143,13 +145,13 @@ export default function WithdrawalsPage() {
       <div className="withdrawal-actions">
         {row.status === "requested" && <>
           <Button type="button" disabled={busyId === row.id} onClick={() => void act(row.id, () => api.adminApprove(row.id))}>{busyId === row.id ? "Đang xử lý…" : "Duyệt"}</Button>
-          <form onSubmit={(event) => void submitReason(event, row, "reject")}><label className="field">Lý do từ chối<input minLength={3} value={reasons[row.id] ?? ""} onChange={(event) => setReasons((current) => ({ ...current, [row.id]: event.target.value }))} required /></label><Button type="submit" disabled={busyId === row.id || (reasons[row.id] ?? "").trim().length < 3}>Từ chối</Button></form>
+          <form onSubmit={(event) => void submitReason(event, row, "reject")}><label className="field">Lý do từ chối<input minLength={3} value={rejectReasons[row.id] ?? ""} onChange={(event) => setRejectReasons((current) => ({ ...current, [row.id]: event.target.value }))} required /></label><Button type="submit" disabled={busyId === row.id || (rejectReasons[row.id] ?? "").trim().length < 3}>Từ chối</Button></form>
         </>}
         {row.status === "approved" && <>
           <Button type="button" disabled={busyId === row.id} onClick={() => void viewAccount(row)}>{busyId === row.id ? "Đang tải…" : "Xem số tài khoản"}</Button>
           <form onSubmit={(event) => void submitPaid(event, row)}><label className="field">Mã giao dịch ngân hàng<input value={providerRefs[row.id] ?? ""} onChange={(event) => setProviderRefs((current) => ({ ...current, [row.id]: event.target.value }))} required /></label><Button type="submit" disabled={busyId === row.id || !(providerRefs[row.id] ?? "").trim()}>Đánh dấu đã chi trả</Button></form>
-          <form onSubmit={(event) => void submitReason(event, row, "fail")}><label className="field">Lý do chuyển khoản lỗi<input minLength={3} value={reasons[row.id] ?? ""} onChange={(event) => setReasons((current) => ({ ...current, [row.id]: event.target.value }))} required /></label><Button type="submit" disabled={busyId === row.id || (reasons[row.id] ?? "").trim().length < 3}>Chuyển khoản lỗi</Button></form>
-          <form onSubmit={(event) => void submitReason(event, row, "reject")}><label className="field">Lý do từ chối<input minLength={3} value={reasons[row.id] ?? ""} onChange={(event) => setReasons((current) => ({ ...current, [row.id]: event.target.value }))} required /></label><Button type="submit" disabled={busyId === row.id || (reasons[row.id] ?? "").trim().length < 3}>Từ chối</Button></form>
+          <form onSubmit={(event) => void submitReason(event, row, "fail")}><label className="field">Lý do chuyển khoản lỗi<input minLength={3} value={failReasons[row.id] ?? ""} onChange={(event) => setFailReasons((current) => ({ ...current, [row.id]: event.target.value }))} required /></label><Button type="submit" disabled={busyId === row.id || (failReasons[row.id] ?? "").trim().length < 3}>Chuyển khoản lỗi</Button></form>
+          <form onSubmit={(event) => void submitReason(event, row, "reject")}><label className="field">Lý do từ chối<input minLength={3} value={rejectReasons[row.id] ?? ""} onChange={(event) => setRejectReasons((current) => ({ ...current, [row.id]: event.target.value }))} required /></label><Button type="submit" disabled={busyId === row.id || (rejectReasons[row.id] ?? "").trim().length < 3}>Từ chối</Button></form>
         </>}
       </div>
       {account?.withdrawal_id === row.id && <section className="payout-account"><h3>Thông tin tài khoản nhận</h3><p className="sensitive-warning">Thông tin nhạy cảm, mỗi lần xem đều được ghi nhật ký</p>

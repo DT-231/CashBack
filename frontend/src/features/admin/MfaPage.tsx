@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Alert, Button } from "@/components/ui";
 import { ApiError, api } from "@/lib/api-client";
@@ -30,6 +30,7 @@ export default function MfaPage() {
   const [recoveryCode, setRecoveryCode] = useState("");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const busyLock = useRef(false);
   const [error, setError] = useState("");
 
   function handleError(cause: unknown) {
@@ -47,30 +48,30 @@ export default function MfaPage() {
   }, [router]);
 
   async function startSetup() {
-    if (busy) return;
-    setBusy(true); setError("");
+    if (busyLock.current) return;
+    busyLock.current = true; setBusy(true); setError("");
     try { setSetup(await api.mfaSetup()); }
     catch (cause) { handleError(cause); }
-    finally { setBusy(false); }
+    finally { busyLock.current = false; setBusy(false); }
   }
   async function enable(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (busy) return;
-    setBusy(true); setError("");
+    if (busyLock.current) return;
+    busyLock.current = true; setBusy(true); setError("");
     try { const result = await api.mfaEnable(code); setCodes(result.recovery_codes); setSaved(false); setStatus({ enabled: true, pending: false, verified: false }); setSetup(null); }
     catch (cause) { handleError(cause); }
-    finally { setCode(""); setBusy(false); }
+    finally { setCode(""); busyLock.current = false; setBusy(false); }
   }
   async function verify(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (busy) return;
-    setBusy(true); setError("");
+    if (busyLock.current) return;
+    busyLock.current = true; setBusy(true); setError("");
     try {
       await api.mfaVerify(recovery ? { recovery_code: recoveryCode } : { code });
       setCode(""); setRecoveryCode(""); setSetup(null); setCodes([]);
       router.replace("/admin/withdrawals");
     } catch (cause) { handleError(cause); }
-    finally { setCode(""); setRecoveryCode(""); setBusy(false); }
+    finally { setCode(""); setRecoveryCode(""); busyLock.current = false; setBusy(false); }
   }
 
   if (loading) return <main className="page"><p role="status">Đang tải trạng thái đăng nhập hai lớp…</p></main>;
