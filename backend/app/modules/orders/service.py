@@ -18,7 +18,7 @@ from datetime import UTC, datetime
 from sqlalchemy import Engine
 
 from app.core.config import ConfigError, Settings
-from app.integrations.shopee.errors import ShopeeError
+from app.integrations.shopee.errors import ShopeeBlockedError, ShopeeError
 from app.modules.ai_posts.service import AiPostService
 from app.modules.clicks.service import ClickService
 from app.modules.links.service import UserLinkService
@@ -42,6 +42,7 @@ class SyncResult:
     status_changes: list[tuple[str, str, str]] = field(default_factory=list)     # (order_sn, từ, sang)
     status_conflicts: list[tuple[str, str, str]] = field(default_factory=list)   # (order_sn, đang lưu, Shopee báo) bị từ chối
     error: str | None = None
+    blocked: bool = False            # Shopee từ chối (401/403/429): cookie hết hạn hoặc IP bị chặn
 
 
 class OrderSync:
@@ -81,7 +82,7 @@ class OrderSync:
         except ShopeeError as e:           # cookie chết/403/mạng: ghi 'failed', KHÔNG đụng dữ liệu hiện có
             self._finish(run_id, "failed", 0)
             log.error("đồng bộ đơn thất bại", extra={"error": str(e)})
-            return SyncResult("failed", error=str(e))
+            return SyncResult("failed", error=str(e), blocked=isinstance(e, ShopeeBlockedError))
         except Exception:
             self._finish(run_id, "failed", 0)
             raise

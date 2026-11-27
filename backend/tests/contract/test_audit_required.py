@@ -9,6 +9,7 @@ from app.modules.audit.errors import InvalidAudit
 from app.modules.audit.service import Actor, AuditContext, audited
 from app.modules.auth.mfa_service import MfaService
 from app.modules.orders.admin_service import OrphanAdmin
+from app.modules.shopee_session.service import ShopeeSessionService
 from app.modules.payout import api as payout_api
 from app.modules.payout.service import PayoutService
 from app.modules.platform_settings.service import PlatformSettings
@@ -16,7 +17,7 @@ from app.modules.wallet.money import WalletMoney
 
 # Mọi lớp service tiền/payout: (lớp, tập hàm chỉ-đọc được miễn)
 GUARDED = [(PayoutService, PayoutService.READ_ONLY), (WalletMoney, WalletMoney.READ_ONLY), (MfaService, MfaService.READ_ONLY),
-           (OrphanAdmin, OrphanAdmin.READ_ONLY)]
+           (OrphanAdmin, OrphanAdmin.READ_ONLY), (ShopeeSessionService, ShopeeSessionService.READ_ONLY)]
 
 
 def public_callables(cls):
@@ -99,7 +100,7 @@ def _deps(dependant):
 
 
 # Route admin CHỈ-ĐỌC không lộ dữ liệu nhạy cảm được miễn audit (vẫn bắt buộc require_admin). Thêm route khác vào đây là quyết định có chủ ý.
-ADMIN_READ_ONLY_PATHS = {"/api/v1/admin/withdrawals", "/api/v1/admin/orphans"}
+ADMIN_READ_ONLY_PATHS = {"/api/v1/admin/withdrawals", "/api/v1/admin/orphans", "/api/v1/admin/shopee-session/status"}
 
 
 def test_every_write_or_admin_route_has_the_required_dependencies(make_settings):
