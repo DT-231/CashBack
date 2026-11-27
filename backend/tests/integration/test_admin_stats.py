@@ -152,3 +152,11 @@ def test_adminstats_repository_is_read_only():
     from pathlib import Path
     src = (Path(__file__).resolve().parents[2] / "app" / "modules" / "adminstats" / "repository.py").read_text()
     assert not re.search(r"(?i)\b(insert\s+into|update\s+\w+\s+set|delete\s+from|truncate|drop\s+table|alter\s+table)\b", src)
+
+
+def test_a_refresh_token_from_before_a_lock_cannot_be_used_after_unlock(api, pg):
+    _, _, ah, _ = user(api, pg, "admin")
+    uid, _, _, refresh = user(api, pg)
+    api.patch(f"/api/v1/admin/users/{uid}", headers=ah, json={"status": "locked", "reason": "tạm khóa"})
+    api.patch(f"/api/v1/admin/users/{uid}", headers=ah, json={"status": "active", "reason": "mở lại"})
+    assert api.post("/api/v1/auth/refresh", json={"refresh_token": refresh}).status_code == 401       # token cũ đã bị xóa lúc khóa
