@@ -42,6 +42,22 @@ def order_totals(conn: Connection, order_id: int) -> dict[str, int]:
     return {k: int(t) for k, t in rows}
 
 
+def order_totals_many(conn: Connection, order_ids: list[int]) -> dict[int, dict]:
+    """Tổng theo loại bút toán của nhiều đơn trong MỘT truy vấn, kèm `_share` (tỷ lệ chốt ở lần accrual đầu)."""
+    if not order_ids:
+        return {}
+    rows = conn.execute(text(
+        "SELECT order_id, kind, sum(amount_vnd) AS total, min(share_bp) AS share FROM wallet_entries "
+        "WHERE order_id = ANY(:ids) GROUP BY order_id, kind"), {"ids": order_ids}).all()
+    out: dict[int, dict] = {}
+    for oid, kind, total, share in rows:
+        d = out.setdefault(oid, {})
+        d[kind] = int(total)
+        if kind == "accrual":
+            d["_share"] = share
+    return out
+
+
 def count_for_order(conn: Connection, order_id: int) -> int:
     return conn.execute(text("SELECT count(*) FROM wallet_entries WHERE order_id = :o"), {"o": order_id}).scalar_one()
 

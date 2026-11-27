@@ -346,8 +346,13 @@ def test_platform_settings_defaults_effective_dates_and_validation(pg):
     assert ps.get_int("user_share_bp", at=datetime(1999, 1, 1, tzinfo=UTC)) == 6000   # trước mọi bản ghi: mặc định 60%
     ps.set_int("hold_days", 14, effective_from=D(10))
     assert ps.get_int("hold_days", at=D(9)) == 7 and ps.get_int("hold_days", at=D(10)) == 14
-    ps.set_int("hold_days", 3, effective_from=D(10))                                   # cùng mốc thì ghi đè
-    assert ps.get_int("hold_days", at=D(11)) == 3
+    with pytest.raises(InvalidSetting):                                                # cùng mốc: KHÔNG ghi đè
+        ps.set_int("hold_days", 3, effective_from=D(10))
+    assert ps.get_int("hold_days", at=D(11)) == 14
+    with pytest.raises(InvalidSetting):                                                # quá khứ: KHÔNG đổi hồi tố
+        ps.set_int("hold_days", 1, effective_from=D(1) - timedelta(seconds=1))
+    ps.set_int("hold_days", 21)                                                        # mặc định: có hiệu lực từ bây giờ
+    assert ps.get_int("hold_days", at=D(1)) == 21 and ps.get_int("hold_days", at=D(9)) == 21
     for key, bad in (("user_share_bp", 10_001), ("user_share_bp", -1), ("hold_days", 121), ("hold_days", True),
                      ("hold_days", 1.5), ("min_withdraw_vnd", -5), ("khong_co", 1)):
         with pytest.raises(InvalidSetting):
@@ -409,3 +414,92 @@ def test_worker_settle_once_runs_and_reports(monkeypatch, capsys, pg):
     out = json.loads(capsys.readouterr().out)
     assert out["settle"]["accrued"] >= 1 and out["settle"]["errors"] == 0
     assert bal(pg, u) == (24_225, 0, 0) or bal(pg, u)[0] > 0
+
+
+# ---------- sửa theo review ----------
+def test_cancelled_after_release_is_reversed_like_a_return(pg, settings):
+    u = make_user(pg)
+    oid = make_order(pg, u, status="COMPLETED", completed_at=D(1))
+    wallet_svc(settings, pg, D(9)).settle()
+    set_order(pg, oid, status="CANCELLED")                    # Shopee thu hồi sau khi hoàn tất
+    r = wallet_svc(settings, pg, D(10)).settle()
+    assert (r.reversed, r.losses, bal(pg, u)) == (1, 0, (0, 0, 0))
+    check_invariant(pg, u)
+
+
+def test_hold_days_follows_the_setting_in_force_when_the_order_completed(pg, settings):
+    u = make_user(pg)
+    early = make_order(pg, u, status="COMPLETED", completed_at=D(1))
+    make_order(pg, u, status="COMPLETED", completed_at=D(6))
+    PlatformSettings(pg, lambda: D(5)).set_int("hold_days", 30, effective_from=D(5))   # từ ngày 5 trở đi giữ 30 ngày
+    w = wallet_svc(settings, pg, D(9))
+    w.settle()
+    with pg.connect() as c:
+        released = {r[0] for r in c.execute(text("SELECT order_id FROM wallet_entries WHERE user_id = :u AND kind = 'release'"), {"u": u})}
+    assert released == {early}                                # đơn hoàn tất trước khi đổi vẫn theo 7 ngày; đơn sau theo 30 ngày
+    assert bal(pg, u) == (24_225, 24_225, 0)
+    wallet_svc(settings, pg, D(6) + timedelta(days=30)).settle()
+    assert bal(pg, u) == (0, 2 * 24_225, 0)
+
+
+def test_failed_order_does_not_inflate_the_counters_or_leave_partial_ledger(pg, settings, monkeypatch):
+    from app.modules.wallet import service as svc_mod
+    u = make_user(pg)
+    make_order(pg, u, status="COMPLETED", completed_at=D(1))
+    real = ledger.post
+
+    def flaky(conn, user_id, kind, *a, **kw):
+        if kind == "release":
+            raise RuntimeError("deadlock giả lập")
+        return real(conn, user_id, kind, *a, **kw)
+    monkeypatch.setattr(svc_mod.ledger, "post", flaky)
+    r = wallet_svc(settings, pg, D(9)).settle()
+    assert (r.accrued, r.released, r.errors, r.orders) == (0, 0, 1, 0)     # accrual đã bị rollback thì không được đếm
+    assert entries(pg, u) == [] and bal(pg, u) == (0, 0, 0)
+    monkeypatch.setattr(svc_mod.ledger, "post", real)
+    r = wallet_svc(settings, pg, D(9)).settle()                            # lần sau tự lành (idempotent)
+    assert (r.accrued, r.released, r.errors, bal(pg, u)) == (1, 1, 0, (0, 24_225, 0))
+
+
+def test_settled_orders_are_skipped_without_touching_the_wallet_lock(pg, settings):
+    u = make_user(pg)
+    make_order(pg, u, status="COMPLETED", completed_at=D(1))
+    make_order(pg, u, status="CANCELLED")
+    wallet_svc(settings, pg, D(9)).settle()
+    assert bal(pg, u) == (0, 24_225, 0)
+    holder = pg.connect()
+    out = {}
+    try:
+        holder.execute(text("SELECT 1 FROM wallets WHERE user_id = :u FOR UPDATE"), {"u": u})   # ai đó đang khóa ví (vd rút tiền)
+        t = threading.Thread(target=lambda: out.setdefault("r", wallet_svc(settings, pg, D(20)).settle()))
+        t.start()
+        t.join(timeout=5)
+        assert not t.is_alive(), "settle bị chặn bởi khóa ví dù mọi đơn đã chốt"
+    finally:
+        holder.rollback()
+        holder.close()
+    assert out["r"].orders == 0 and out["r"].errors == 0
+
+
+def test_needs_action_matrix_and_negative_commission_is_clamped(pg, settings):
+    from app.modules.orders.service import AttributedOrder
+    w = wallet_svc(settings, pg, D(20))
+    share_at, hold_at = w.platform.resolver("user_share_bp"), w.platform.resolver("hold_days")
+
+    def need(status, t, commission=COMMISSION, completed=D(1)):
+        return w._needs_action(AttributedOrder(1, 1, status, commission, completed), t, D(20), share_at, hold_at)
+    assert need("PENDING", {}) is True                                     # chưa accrual
+    assert need("PENDING", {"accrual": 24_225, "_share": 6000}) is False   # đã khớp, chờ tiếp
+    assert need("COMPLETED", {"accrual": 24_225, "_share": 6000}) is True  # hết hạn giữ: cần release
+    assert need("COMPLETED", {"accrual": 24_225, "release": 24_225, "_share": 6000}) is False
+    assert need("RETURNED", {"accrual": 24_225, "release": 24_225}) is True
+    assert need("RETURNED", {"accrual": 24_225, "release": 24_225, "reverse": 24_225}) is False
+    assert need("CANCELLED", {"accrual": 5, "cancel": 5}) is False and need("CANCELLED", {}) is False
+    assert need("PENDING", {}, commission=-5) is False                     # âm = 0, không ném lỗi
+
+
+def test_settle_result_orders_counts_only_processed_orders(pg, settings):
+    u = make_user(pg)
+    make_order(pg, u)
+    make_order(pg, u, commission=0)
+    assert wallet_svc(settings, pg, D(1)).settle().orders == 1

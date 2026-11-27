@@ -31,16 +31,19 @@ DELTAS: dict[tuple[str, str], tuple[int, int, int]] = {
 
 
 def post(conn: Connection, user_id: int, kind: str, state: str, amount: int, idem_key: str, *,
-         order_id: int | None = None, withdrawal_id: int | None = None, share_bp: int | None = None) -> bool:
+         order_id: int | None = None, withdrawal_id: int | None = None, share_bp: int | None = None,
+         locked: bool = False) -> bool:
     """Ghi một bút toán và cập nhật số dư trong CÙNG transaction của caller. True nếu ghi mới, False nếu `idem_key`
-    đã có (không đổi gì). Khóa dòng ví nên các bút toán của một user được xếp hàng."""
+    đã có (không đổi gì). Khóa dòng ví nên các bút toán của một user được xếp hàng. `locked=True`: caller đã gọi
+    `repository.ensure_wallet` + `lock_wallet` trong transaction này (bỏ qua hai truy vấn thừa)."""
     delta = DELTAS.get((kind, state))
     if delta is None:
         raise LedgerError(f"cặp (kind, state) không hợp lệ: ({kind}, {state})")
     if isinstance(amount, bool) or not isinstance(amount, int) or amount <= 0:
         raise LedgerError("amount phải là số nguyên dương")
-    repository.ensure_wallet(conn, user_id)
-    repository.lock_wallet(conn, user_id)
+    if not locked:
+        repository.ensure_wallet(conn, user_id)
+        repository.lock_wallet(conn, user_id)
     if repository.insert_entry(conn, user_id, kind, state, amount, idem_key, order_id, withdrawal_id, share_bp) is None:
         return False
     dp, da, dh = delta

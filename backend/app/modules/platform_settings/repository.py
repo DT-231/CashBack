@@ -11,7 +11,12 @@ def get_effective(conn: Connection, key: str, at: datetime):
                              "ORDER BY effective_from DESC LIMIT 1"), {"k": key, "t": at}).scalar_one_or_none()
 
 
+def history(conn: Connection, key: str):
+    return conn.execute(text("SELECT effective_from, value FROM settings WHERE key = :k ORDER BY effective_from"),
+                        {"k": key}).all()
+
+
 def put(conn: Connection, key: str, value_json: str, effective_from: datetime) -> None:
-    conn.execute(text("INSERT INTO settings(key, value, effective_from) VALUES (:k, CAST(:v AS jsonb), :t) "
-                      "ON CONFLICT (key, effective_from) DO UPDATE SET value = EXCLUDED.value"),
+    """CHỈ nối thêm: trùng (key, effective_from) thì lỗi IntegrityError, không ghi đè. Lịch sử cấu hình nhờ đó là kiểm toán."""
+    conn.execute(text("INSERT INTO settings(key, value, effective_from) VALUES (:k, CAST(:v AS jsonb), :t)"),
                  {"k": key, "v": value_json, "t": effective_from})

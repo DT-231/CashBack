@@ -7,7 +7,7 @@ CASES = [
     ("PENDING", "RETURNED", ("RETURNED", True)), ("PENDING", "PENDING", ("PENDING", True)),
     ("COMPLETED", "COMPLETED", ("COMPLETED", True)), ("COMPLETED", "RETURNED", ("RETURNED", True)),
     ("COMPLETED", "PENDING", ("COMPLETED", False)),     # dữ liệu lạ/thiếu không được hạ đơn đã hoàn tất
-    ("COMPLETED", "CANCELLED", ("COMPLETED", False)),
+    ("COMPLETED", "CANCELLED", ("CANCELLED", True)),   # Shopee thu hồi sau khi hoàn tất
     ("CANCELLED", "COMPLETED", ("CANCELLED", False)), ("CANCELLED", "PENDING", ("CANCELLED", False)),
     ("CANCELLED", "CANCELLED", ("CANCELLED", True)),
     ("RETURNED", "COMPLETED", ("RETURNED", False)), ("RETURNED", "PENDING", ("RETURNED", False)),
