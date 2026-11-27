@@ -18,11 +18,14 @@ class AuthService:
     def __init__(self, settings: Settings, engine: Engine):
         self.s, self.engine = settings, engine
 
-    def _issue(self, conn, user_id: int, role: str) -> TokenOut:
+    def issue(self, conn, user_id: int, role: str, mfa_at=None) -> TokenOut:
+        """Cặp token mới. `mfa_at` (datetime) ghi cả vào refresh token để giữ trạng thái đã xác minh hai lớp khi làm mới."""
         raw, hashed = security.new_refresh_token()
-        repository.save_refresh(conn, user_id, hashed, self.s.refresh_ttl_days)
-        return TokenOut(access_token=security.make_access_token(self.s, user_id, role), refresh_token=raw,
-                        expires_in=self.s.access_ttl_min * 60)
+        repository.save_refresh(conn, user_id, hashed, self.s.refresh_ttl_days, mfa_at)
+        return TokenOut(access_token=security.make_access_token(self.s, user_id, role, int(mfa_at.timestamp()) if mfa_at else None),
+                        refresh_token=raw, expires_in=self.s.access_ttl_min * 60)
+
+    _issue = issue
 
     def register(self, email: str, password: str) -> UserOut:
         status = "unverified" if self.s.require_email_verify else "active"
@@ -50,11 +53,12 @@ class AuthService:
         token_hash = security.hash_refresh_token(raw_token)
         reused_by = None
         with self.engine.begin() as conn:
-            uid = repository.consume_refresh(conn, token_hash)
-            if uid is not None:
+            row = repository.consume_refresh(conn, token_hash)
+            if row is not None:
+                uid, mfa_at = row
                 u = repository.find_by_id(conn, uid)
                 if u and u["status"] == "active":
-                    return self._issue(conn, uid, u["role"])
+                    return self._issue(conn, uid, u["role"], mfa_at)
             else:
                 reused_by = repository.owner_of_rotated(conn, token_hash, REUSE_GRACE_SECONDS)
                 if reused_by is not None:       # token đã dùng mà vẫn bị đem ra dùng lại: thu hồi mọi phiên

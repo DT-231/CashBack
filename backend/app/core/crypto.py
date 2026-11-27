@@ -55,12 +55,15 @@ def keyring(settings: Settings) -> tuple[str, dict[str, bytes]]:
 
 
 class BankCipher:
+    """Mã hóa theo MỤC ĐÍCH: AAD gồm `purpose` và chủ sở hữu nên bản mã của mục đích này không giải mã được ở mục đích khác
+    (số tài khoản ngân hàng vs bí mật TOTP). Dùng chung một bộ khóa BANK_ENC_KEY (một thứ để sao lưu)."""
+    purpose = "bank_account"
+
     def __init__(self, settings: Settings):
         self.key_id, self._ring = keyring(settings)
 
-    @staticmethod
-    def _aad(user_id: int) -> bytes:
-        return f"bank_account:{user_id}".encode()
+    def _aad(self, user_id: int) -> bytes:
+        return f"{self.purpose}:{user_id}".encode()
 
     def encrypt(self, plaintext: str, user_id: int) -> tuple[str, str]:
         """(key_id, token). token = base64(nonce || ciphertext || tag)."""
@@ -77,3 +80,8 @@ class BankCipher:
             return AESGCM(key).decrypt(raw[:_NONCE], raw[_NONCE:], self._aad(user_id)).decode()
         except (InvalidTag, binascii.Error, ValueError):
             raise CryptoError("giải mã thất bại") from None
+
+
+class MfaCipher(BankCipher):
+    """Bí mật TOTP của người dùng (cùng khóa, khác AAD)."""
+    purpose = "mfa_secret"

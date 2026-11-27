@@ -98,3 +98,14 @@ def test_bff_warning_is_logged_at_startup(monkeypatch, caplog):
     with caplog.at_level(logging.WARNING):
         main_api.main()
     assert called.get("ran") and any("BFF_SHARED_SECRET" in r.getMessage() for r in caplog.records)
+
+
+def test_withdrawals_cannot_be_enabled_without_mandatory_admin_totp():
+    import base64
+    import os
+    key = base64.urlsafe_b64encode(os.urandom(32)).decode()
+    with pytest.raises(ConfigError, match="ADMIN_MFA_REQUIRED"):
+        Settings(withdrawals_enabled=True, bank_enc_key=key, admin_mfa_required=False).validate_for_serving()
+    Settings(withdrawals_enabled=True, bank_enc_key=key).validate_for_serving()
+    Settings(withdrawals_enabled=False, admin_mfa_required=False).validate_for_serving()      # tắt cờ chỉ được khi chưa rút tiền
+    assert Settings().admin_mfa_required is True                                           # mặc định BẬT

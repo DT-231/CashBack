@@ -80,6 +80,12 @@ class Settings(BaseSettings):
     rl_withdraw_per_hour: int = Field(default=5, ge=1)      # yêu cầu rút theo user
     rl_bank_add_per_hour: int = Field(default=5, ge=1)      # thêm tài khoản ngân hàng theo user
 
+    # --- đăng nhập hai lớp cho admin (TOTP, T-019) ---
+    admin_mfa_required: bool = True          # route admin yêu cầu admin đã bật TOTP và đã xác minh gần đây. Bật rút tiền mà tắt cờ này: từ chối khởi động
+    mfa_max_age_hours: int = Field(default=12, ge=1, le=168)   # sau chừng này giờ kể từ lần nhập mã phải nhập lại
+    mfa_issuer: str = "CashBack"
+    rl_mfa_per_minute: int = Field(default=5, ge=1)            # thử mã theo user và theo IP
+
     # --- đăng nhập (module auth) ---
     jwt_secret: SecretStr = SecretStr("")    # >= 32 ký tự; rỗng thì endpoint auth trả 503
     access_ttl_min: int = 15
@@ -139,6 +145,8 @@ class Settings(BaseSettings):
         return out
 
     def validate_for_serving(self) -> None:
+        if self.withdrawals_enabled and not self.admin_mfa_required:
+            raise ConfigError("WITHDRAWALS_ENABLED=1 nhưng ADMIN_MFA_REQUIRED=0: không được bật rút tiền khi admin chưa bắt buộc TOTP")
         if self.withdrawals_enabled:
             from app.core.crypto import keyring   # chỉ khi bật rút tiền; ném ConfigError nếu khóa thiếu/yếu/sai định dạng
             keyring(self)

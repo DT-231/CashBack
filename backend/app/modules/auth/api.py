@@ -4,6 +4,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, Request
 
 from app.core.clientip import request_ip
+from app.core import security
 from app.core.errors import Forbidden, Unauthorized
 from app.modules.audit.service import Actor, record_best_effort
 from app.core.ratelimit import enforce_ip_limit, enforce_rate_limits
@@ -30,10 +31,21 @@ def current_user(request: Request) -> UserOut:
     return user
 
 
-def require_admin(user: UserOut = Depends(current_user)) -> UserOut:
-    """Chỉ role admin (staff KHÔNG đủ). `current_user` đọc role từ DB mỗi request nên hạ quyền có hiệu lực ngay."""
+def token_claims(request: Request) -> dict:
+    token = _bearer(request)
+    return (security.decode_access_token(request.app.state.settings, token) if token else None) or {}
+
+
+def require_admin(request: Request, user: UserOut = Depends(current_user)) -> UserOut:
+    """Chỉ role admin (staff KHÔNG đủ) VÀ đã đăng nhập hai lớp (TOTP) gần đây khi `ADMIN_MFA_REQUIRED` (mặc định bật).
+    `current_user` đọc role từ DB mỗi request nên hạ quyền có hiệu lực ngay; trạng thái TOTP cũng kiểm DB mỗi lần."""
     if user.role != "admin":
         raise Forbidden("Chỉ admin được thực hiện thao tác này")
+    st = request.app.state
+    if st.settings.admin_mfa_required:
+        from app.modules.auth.mfa_service import MfaService      # import muộn: mfa_service dùng AuthService
+        clock = getattr(st, "mfa_clock", None)
+        MfaService(st.settings, st.get_engine(), **({"clock": clock} if clock else {})).require_fresh(user.id, token_claims(request))
     return user
 
 

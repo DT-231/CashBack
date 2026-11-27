@@ -11,6 +11,8 @@ Quyền: `public`, `member`, `staff`, `admin`, `agent`.
 | GET | `/auth/verify?token=` | public | Kích hoạt |
 | POST | `/auth/login` | public | `{email,password}` → set cookie |
 | POST | `/auth/logout` | member+ | |
+| GET | `/auth/mfa/status` | member+ | `{enabled, pending, verified}` (phiên này đã nhập mã TOTP gần đây chưa) |
+| POST | `/auth/mfa/setup` / `/enable {code}` / `/verify {code | recovery_code}` / `/disable {code}` | member+ | Đăng nhập hai lớp TOTP (T-019). `setup` trả `secret` + `otpauth_uri` một lần; `enable` trả 8 mã khôi phục một lần; `verify` trả cặp token MỚI có `mfa_at` (route admin yêu cầu). Chưa bật/chưa xác minh: route admin trả `403 mfa_required`. Xem `docs/runbooks/admin-mfa.md` |
 | POST | `/auth/forgot` | public | Luôn 202 |
 | POST | `/auth/reset` | public | `{token,password}` |
 
