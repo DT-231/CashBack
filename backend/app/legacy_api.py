@@ -8,13 +8,15 @@ from __future__ import annotations
 
 import json
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
 
+from app.modules.agent_auth.api import require_agent_if_configured
 from app.modules.links import service as links
 from app.modules.links.affiliate_link import LinkConfig, LinkError, link_for_item, parse_product_url
 
 router = APIRouter(tags=["legacy"])
+guard = [Depends(require_agent_if_configured)]   # bắt buộc khóa khi đã cấu hình / lắng nghe ngoài localhost
 
 
 def _err(msg: str, code: int) -> JSONResponse:
@@ -26,7 +28,7 @@ def health(request: Request):
     s = request.app.state.settings
     return {"ok": True, "mock": s.mock, "aff_id_set": bool(s.aff_id),
             "cookie_set": bool(s.shopee_cookie.get_secret_value()), "engine": s.search_engine,
-            "feed_file": s.feed_file or None}
+            "feed_configured": bool(s.feed_file)}
 
 
 @router.get("/")
@@ -37,24 +39,27 @@ def guide():
                           "GET /api/v1/agent/*": "Tool API mới (Bearer key)"}}
 
 
-@router.get("/api/search")
+@router.get("/api/search", dependencies=guard)
 def search(request: Request):
     q = request.query_params
     keyword = (q.get("keyword") or "").strip()
     if not keyword:
         return _err("thiếu keyword", 400)
-    limit = int(q.get("limit") or "10")
+    try:
+        limit = int(q.get("limit") or "10")
+    except ValueError:
+        return _err("limit phải là số nguyên", 400)
     sort = q.get("sort") or "relevancy"
     sub = (q.get("sub") or "").strip()
     engine = (q.get("engine") or "auto").strip().lower()
 
     res = request.app.state.search.search(keyword, limit, sort, engine)
-    items = links.enrich_items(request.app.state.settings, res["items"], keyword, sub)
+    items = links.enrich_items(request.app.state.settings, res["items"], sub)
     return {"ok": res["ok"], "keyword": keyword, "count": len(items), "engine": res.get("engine"),
             "tried": res.get("tried"), "source": res.get("source"), "error": res.get("error"), "items": items}
 
 
-@router.post("/api/link")
+@router.post("/api/link", dependencies=guard)
 async def link(request: Request):
     try:
         raw = await request.body()
@@ -72,7 +77,11 @@ async def link(request: Request):
     if not (item_id and shop_id):
         return _err("cần url hoặc item_id + shop_id", 400)
     try:
-        out = link_for_item(int(item_id), int(shop_id), sub, LinkConfig.from_settings(request.app.state.settings))
+        item_id, shop_id = int(item_id), int(shop_id)
+    except (TypeError, ValueError):
+        return _err("item_id và shop_id phải là số nguyên", 400)
+    try:
+        out = link_for_item(item_id, shop_id, sub, LinkConfig.from_settings(request.app.state.settings))
     except LinkError as e:
         return _err(str(e), 500)
     return {"ok": True, **out}

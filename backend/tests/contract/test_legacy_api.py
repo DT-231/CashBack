@@ -16,6 +16,7 @@ def golden(name):
 def test_health(client):
     r = client.get("/health").json()
     assert r["ok"] is True and r["mock"] is True and r["aff_id_set"] is True
+    assert "feed_file" not in r and r["feed_configured"] is False   # audit #18: không lộ đường dẫn
 
 
 def test_search_mock_shape_and_links(client):
@@ -80,7 +81,7 @@ def test_missing_keyword_is_400(client):
 
 def test_item_without_ids_has_no_link(client):
     from app.modules.links.service import enrich_items
-    out = enrich_items(client.app.state.settings, [{"name": "x"}], "x", "")
+    out = enrich_items(client.app.state.settings, [{"name": "x"}], "")
     assert out[0]["aff_link"] is None and "item_id/shop_id" in out[0]["link_error"]
 
 

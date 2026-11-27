@@ -51,6 +51,7 @@ class Settings(BaseSettings):
     host: str = "127.0.0.1"
     port: int = 8080
     public_base: str = ""
+    cors_origins: str = ""                 # danh sách origin, ngăn bằng dấu phẩy; rỗng = tắt CORS
     agent_api_key: SecretStr = SecretStr("")  # khóa khởi tạo cho Tool API; thêm khóa khác qua bảng agent_keys
 
     # --- DB ---

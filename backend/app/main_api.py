@@ -36,8 +36,10 @@ def create_app(settings: Settings | None = None, shopee=None, engine: Engine | N
         return app.state.engine
     app.state.get_engine = get_engine
 
-    app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["GET", "POST", "OPTIONS"],
-                       allow_headers=["Content-Type"])
+    origins = [o.strip() for o in settings.cors_origins.split(",") if o.strip()]
+    if origins:   # mặc định KHÔNG bật CORS: Tool API là server-to-server
+        app.add_middleware(CORSMiddleware, allow_origins=origins, allow_methods=["GET", "POST", "OPTIONS"],
+                           allow_headers=["Content-Type", "Authorization"])
 
     @app.middleware("http")
     async def access_log(request: Request, call_next):
