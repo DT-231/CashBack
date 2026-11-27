@@ -8,13 +8,14 @@ Quyền: `public`, `member`, `staff`, `admin`, `agent`.
 | Method | Path | Quyền | Mô tả |
 |---|---|---|---|
 | POST | `/auth/register` | public | `{email,password}` → 202, gửi email xác minh |
-| GET | `/auth/verify?token=` | public | Kích hoạt |
+| POST | `/auth/verify` | public | `{token}` → 204; token một lần, hạn 24 giờ, **POST (không GET) để token không vào URL/nhật ký/Referer** |
+| POST | `/auth/verify/resend` | public | `{email}` → luôn 202; chỉ gửi nếu tài khoản chưa xác minh; token cũ vô hiệu; giới hạn theo IP và 3 lần/giờ/email |
 | POST | `/auth/login` | public | `{email,password}` → set cookie |
 | POST | `/auth/logout` | member+ | |
 | GET | `/auth/mfa/status` | member+ | `{enabled, pending, verified}` (phiên này đã nhập mã TOTP gần đây chưa) |
 | POST | `/auth/mfa/setup` / `/enable {code}` / `/verify {code | recovery_code}` / `/disable {code}` | member+ | Đăng nhập hai lớp TOTP (T-019). `setup` trả `secret` + `otpauth_uri` một lần; `enable` trả 8 mã khôi phục một lần; `verify` trả cặp token MỚI có `mfa_at` (route admin yêu cầu). Chưa bật/chưa xác minh: route admin trả `403 mfa_required`. Xem `docs/runbooks/admin-mfa.md` |
-| POST | `/auth/forgot` | public | Luôn 202 |
-| POST | `/auth/reset` | public | `{token,password}` |
+| POST | `/auth/forgot` | public | `{email}` → luôn 202 (như nhau dù email có tồn tại, bị khóa hay không); gửi nền SAU khi trả lời; giới hạn theo IP và 3 lần/giờ/email |
+| POST | `/auth/reset` | public | `{token,password>=10}` → 204; token một lần, hạn 1 giờ; đổi mật khẩu, **đăng xuất mọi thiết bị**, vô hiệu token còn lại; `unverified` thành `active`; tài khoản `locked` KHÔNG được mở |
 
 ## Member
 | Method | Path | Quyền | Mô tả |

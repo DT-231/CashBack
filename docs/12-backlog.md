@@ -130,6 +130,7 @@ Ghi chú: các mục trên là điều kiện **mở cho người ngoài**. Dùn
   - Given sai mật khẩu 5 lần When thử Then bị khóa tạm theo IP+email
 
 ### T-011: Là thành viên, tôi muốn xác minh email và quên mật khẩu để lấy lại tài khoản
+- **Backend đã làm (2026-11-28, `autopilot/main`)**: token, endpoint, Mailer SMTP (cần `SMTP_*`, `WEB_ORIGIN`; chưa gửi thư thật lần nào). **Trang web `/verify-email`, `/reset-password`, `/forgot-password`: chưa làm** (việc cho Codex). Bật `REQUIRE_EMAIL_VERIFY=1` chỉ khi SMTP đã chạy.
 - Loại: feature · 5 điểm · Must · Sprint 1 · Owner: codex · Phụ thuộc: T-010
 - Acceptance criteria:
   - Given token hợp lệ When xác minh Then user active
