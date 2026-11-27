@@ -18,3 +18,18 @@ backups/
 image.png
 *.png
 !docs/**/*.png
+.coverage
+*.egg-info/
+
+# Rác hệ điều hành / cache công cụ
+.DS_Store
+.ruff_cache/
+.pytest_cache/
+.coverage*
+
+# Codex kit: file cài đặt và dữ liệu chạy (giữ .claude/, scripts/ do bạn quyết định)
+.codex-runs/
+codex-kit/
+codex-kit.zip
+README-codex-kit.md
+*.zip

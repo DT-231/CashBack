@@ -75,11 +75,14 @@ POST /api/v1/agent/links  {"shop_id":1020310358,"item_id":24088489429,"post_key"
 | GET | `/admin/audit-logs` | admin | |
 
 ## Tool API hiện có (v1.2) — chuyển đổi
-| Hiện tại | Sau này |
-|---|---|
-| `GET /api/search` | `/agent/search` (có auth) |
-| `POST /api/link` | `/agent/links` (có `post_key`) |
-| `GET /api/stats`, `/api/revenue` | Bỏ; thay bằng `/agent/insights` (đọc DB) và `/admin/overview` |
-| `GET /go/<sub_id>` | `/go/{code}` (không còn dùng `sub_id` làm đường dẫn) |
 
-Giai đoạn đầu service hiện tại có thể vẫn chạy nội bộ không auth theo yêu cầu PO, nhưng **khi đưa ra Cloudflare Tunnel thì bắt buộc bật API key** (S1/S2 ở `00-hien-trang.md`).
+Trạng thái sau refactor (2026-11-27, `docs/refactor/`):
+
+| Cũ | Hiện tại |
+|---|---|
+| `GET /api/search` | **Còn** (lớp tương thích, sắp bỏ) → dùng `GET /api/v1/agent/search` (có auth) |
+| `POST /api/link` | **Còn** (lớp tương thích, sắp bỏ) → dùng `POST /api/v1/agent/links` (idempotent theo `post_key`, sub_id v1 có chữ ký) |
+| `GET /api/stats`, `GET /api/revenue` | **Đã bỏ**. Doanh thu thật: `backend/scripts/revenue_report.py`; sau này `/agent/insights`, `/admin/overview` |
+| `GET /go/<sub_id>` | **Đã bỏ** khỏi backend; `/go/{code}` sẽ chạy ở Cloudflare Worker (T-015) |
+
+`/api/search` và `/api/link` bắt buộc `Authorization: Bearer` khi đã đặt `AGENT_API_KEY` hoặc `HOST` không phải localhost (khi đó server từ chối khởi động nếu thiếu khóa).

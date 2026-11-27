@@ -1,0 +1,69 @@
+{
+  "ok": true,
+  "keyword": "nồi chiên",
+  "count": 5,
+  "engine": "api",
+  "tried": [
+    "feed:bỏ qua (chưa đặt FEED_FILE)",
+    "api:ok"
+  ],
+  "source": "mock",
+  "error": null,
+  "items": [
+    {
+      "item_id": 100001,
+      "shop_id": 5501,
+      "name": "Nồi chiên không dầu 5.5L",
+      "price": 690000,
+      "sold": 1200,
+      "rating": 4.8,
+      "sub_id": "fb01-1",
+      "product_url": "https://shopee.vn/product/5501/100001",
+      "aff_link": "https://shopee.vn/universal-link/product/5501/100001?utm_source=an_17399999999&utm_medium=affiliates&utm_campaign=-&utm_content=fb01-1---"
+    },
+    {
+      "item_id": 100002,
+      "shop_id": 5502,
+      "name": "Bộ dao thớt inox nhà bếp",
+      "price": 189000,
+      "sold": 3400,
+      "rating": 4.7,
+      "sub_id": "fb01-2",
+      "product_url": "https://shopee.vn/product/5502/100002",
+      "aff_link": "https://shopee.vn/universal-link/product/5502/100002?utm_source=an_17399999999&utm_medium=affiliates&utm_campaign=-&utm_content=fb01-2---"
+    },
+    {
+      "item_id": 100003,
+      "shop_id": 5503,
+      "name": "Máy hút bụi cầm tay mini",
+      "price": 450000,
+      "sold": 820,
+      "rating": 4.6,
+      "sub_id": "fb01-3",
+      "product_url": "https://shopee.vn/product/5503/100003",
+      "aff_link": "https://shopee.vn/universal-link/product/5503/100003?utm_source=an_17399999999&utm_medium=affiliates&utm_campaign=-&utm_content=fb01-3---"
+    },
+    {
+      "item_id": 100004,
+      "shop_id": 5504,
+      "name": "Kệ chén inox 2 tầng",
+      "price": 159000,
+      "sold": 5100,
+      "rating": 4.9,
+      "sub_id": "fb01-4",
+      "product_url": "https://shopee.vn/product/5504/100004",
+      "aff_link": "https://shopee.vn/universal-link/product/5504/100004?utm_source=an_17399999999&utm_medium=affiliates&utm_campaign=-&utm_content=fb01-4---"
+    },
+    {
+      "item_id": 100005,
+      "shop_id": 5505,
+      "name": "Chảo chống dính đá hoa cương 28cm",
+      "price": 259000,
+      "sold": 2300,
+      "rating": 4.5,
+      "sub_id": "fb01-5",
+      "product_url": "https://shopee.vn/product/5505/100005",
+      "aff_link": "https://shopee.vn/universal-link/product/5505/100005?utm_source=an_17399999999&utm_medium=affiliates&utm_campaign=-&utm_content=fb01-5---"
+    }
+  ]
+}

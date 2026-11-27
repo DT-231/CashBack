@@ -1,0 +1,9 @@
+{"code": 0, "data": {
+  "list": [
+    {"ymd": "2026-11-26", "clicks": 10, "cv_by_order": 1, "order_amount": 19000000000,
+     "total_commission": 403750000, "total_income": 403750000},
+    {"ymd": "2026-11-27", "clicks": 4, "cv_by_order": 0, "order_amount": 0,
+     "total_commission": 0, "total_income": 0}],
+  "clicks_sum": 14, "cv_by_order_sum": 1, "order_amount_sum": 19000000000,
+  "total_commission_sum": 403750000, "total_income_sum": 403750000,
+  "est_commission_sum": 500000000, "last_update_time": 1796000000}}

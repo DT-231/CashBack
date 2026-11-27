@@ -1,0 +1,35 @@
+[project]
+name = "cashback-backend"
+version = "0.0.0"
+requires-python = ">=3.11"
+dependencies = [
+  "requests>=2.31.0",
+  "alembic==1.14.0",
+  "SQLAlchemy==2.0.36",
+  "psycopg[binary]==3.2.3",
+  "argon2-cffi==23.1.0",
+  "fastapi>=0.115",
+  "uvicorn>=0.30",
+  "pydantic-settings>=2.4",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "coverage>=7", "ruff>=0.6", "httpx>=0.27"]
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+# Giai đoạn 1 của refactor: chỉ bắt lỗi thật, chưa ép style lên code cũ.
+[tool.ruff.lint]
+select = ["E9", "F"]
+
+[tool.coverage.run]
+branch = true

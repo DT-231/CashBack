@@ -1,0 +1,59 @@
+{
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "shopee_find_links",
+        "description": "Tìm sản phẩm Shopee theo keyword, trả về tên, giá, ảnh và link affiliate đã gắn sub_id. Chỉ dùng dữ liệu trả về, không tự bịa sản phẩm/giá.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "keyword": {
+              "type": "string",
+              "description": "Tên sản phẩm, tiếng Việt"
+            },
+            "limit": {
+              "type": "integer",
+              "description": "Số kết quả, mặc định 10, tối đa 60"
+            },
+            "sort": {
+              "type": "string",
+              "enum": [
+                "relevancy",
+                "sales"
+              ]
+            },
+            "sub": {
+              "type": "string",
+              "description": "Mã bài đăng/kênh để đối soát hoa hồng"
+            }
+          },
+          "required": [
+            "keyword"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "shopee_link_from_url",
+        "description": "Đổi link sản phẩm Shopee có sẵn thành link affiliate gắn sub_id.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "url": {
+              "type": "string"
+            },
+            "sub": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "url"
+          ]
+        }
+      }
+    }
+  ]
+}

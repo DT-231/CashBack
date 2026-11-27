@@ -1,0 +1,54 @@
+[
+  {
+    "name": "shopee_find_links",
+    "description": "Tìm sản phẩm trên Shopee theo tên/mô tả và trả về danh sách kèm link affiliate đã gắn sub_id. Dùng hàm này mỗi khi người dùng muốn đăng bán, gợi ý, hoặc cần link sản phẩm. KHÔNG tự bịa tên sản phẩm hay giá — chỉ dùng dữ liệu hàm trả về.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "keyword": {
+          "type": "string",
+          "description": "Tên sản phẩm cần tìm, tiếng Việt, ngắn gọn. Ví dụ: 'nồi chiên không dầu', 'kệ chén inox'"
+        },
+        "limit": {
+          "type": "integer",
+          "description": "Số sản phẩm muốn lấy, mặc định 10, tối đa 60"
+        },
+        "sort": {
+          "type": "string",
+          "enum": [
+            "relevancy",
+            "sales"
+          ],
+          "description": "relevancy = đúng tên nhất, sales = bán chạy nhất"
+        },
+        "sub": {
+          "type": "string",
+          "description": "Mã định danh bài đăng/kênh, ví dụ 'fb01', 'tt-20261126'. Dùng để đối soát hoa hồng. Nếu không biết thì để trống."
+        }
+      },
+      "required": [
+        "keyword"
+      ]
+    }
+  },
+  {
+    "name": "shopee_link_from_url",
+    "description": "Chuyển một link sản phẩm Shopee có sẵn (dán tay, hoặc link người dùng gửi) thành link affiliate có gắn sub_id.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "url": {
+          "type": "string",
+          "description": "Link sản phẩm Shopee, ví dụ https://shopee.vn/product/123456/789012"
+        },
+        "sub": {
+          "type": "string",
+          "description": "Mã định danh bài đăng/kênh để đối soát hoa hồng"
+        }
+      },
+      "required": [
+        "url"
+      ]
+    }
+  }
+]
