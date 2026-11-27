@@ -16,7 +16,7 @@ set -euo pipefail
 ID="${1:?Cách dùng: scripts/codex-task.sh <task-id> [base-branch]}"
 BASE="${2:-main}"
 ROOT="$(git rev-parse --show-toplevel)"
-TASK="$ROOT/backlog/tasks/$ID.md"
+TASK="${TASK_FILE:-$ROOT/backlog/tasks/$ID.md}"
 BR="task/$ID"
 WT="$(cd "$ROOT/.." && pwd)/wt-$ID"
 RUNS="$ROOT/.codex-runs"
@@ -50,7 +50,9 @@ Khi xong, câu trả lời cuối cùng của bạn PHẢI theo đúng mẫu:
 ## File đã đổi
 - ...
 ## Test
-- lệnh đã chạy + kết quả
+- lệnh đã chạy + kết quả (số passed/failed thật)
+## Test bị bỏ qua (skip) và lý do
+- liệt kê từng test/file bị skip và vì sao (ví dụ: không có Postgres trong sandbox). Không có thì ghi "không có". KHÔNG được viết "test pass" khi test DB bị skip
 ## Điểm chưa chắc / cần Tech Lead xem
 - ...
 

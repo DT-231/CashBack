@@ -57,3 +57,5 @@ Tiền là số nguyên (VND hoặc micro ×1e5), **không float**. Làm tròn x
 - Refactor **không đổi hành vi**: có test khóa trước, commit `refactor(<module>): ...`; sửa lỗi ở commit `fix(...)` riêng.
 - **Phân việc:** Claude giữ kiến trúc, ERD, `sub_id`, ví/tiền, bảo mật, migration. Codex/Antigravity làm CRUD, UI, test, script.
 - **Mỗi task Codex chỉ đụng MỘT module** (copy từ `_template/`). **Không sửa `core/`, `modules/wallet`, `core/subid.py`, `migrations/` khi chưa được giao rõ.** Cần đổi chúng thì dừng và báo.
+- **Báo cáo trung thực về test:** báo cáo phải liệt kê test nào bị skip và lý do. Không viết "test pass" khi test DB bị skip (sandbox của Codex không có Postgres nên test tích hợp luôn skip).
+- **Trước khi trình PO duyệt** (người review, không phải Codex): chạy lại toàn bộ test với Postgres thật **hai lần liên tiếp**, kiểm tra DB không còn dòng rác sau test, và chạy test đột biến (cố ý phá logic chính, test phải đỏ). Test chỉ "xanh" mà không bắt được đột biến thì chưa đủ.
