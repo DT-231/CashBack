@@ -1,6 +1,6 @@
 # 04 — Kết quả refactor
 
-Nhánh `refactor/restructure`, 17 commit trên `main`. Baseline: `01-audit.md` §3 và `03-progress.md`.
+Nhánh `refactor/restructure`, 19 commit trên `main`. Baseline: `01-audit.md` §3 và `03-progress.md`.
 
 ## So sánh trước / sau
 
