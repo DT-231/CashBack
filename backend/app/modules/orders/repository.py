@@ -79,3 +79,17 @@ def start_run(conn: Connection, kind: str) -> int:
 def finish_run(conn: Connection, run_id: int, result: str, rows: int) -> None:
     conn.execute(text("UPDATE sync_runs SET finished_at = now(), result = :r, rows = :n WHERE id = :i"),
                  {"r": result, "n": rows, "i": run_id})
+
+
+def attributed_orders(conn: Connection, after_id: int, limit: int, recent_days: int):
+    """Đơn đã gán cho user mà ví còn có thể phải xử lý: chưa chốt (PENDING/COMPLETED) hoặc mới đổi gần đây."""
+    return conn.execute(text(
+        "SELECT id, user_id, status, commission_micro, completed_at FROM shopee_orders "
+        "WHERE user_id IS NOT NULL AND id > :a AND (status IN ('PENDING', 'COMPLETED') "
+        "OR updated_at > now() - make_interval(days => :d)) ORDER BY id LIMIT :l"),
+        {"a": after_id, "d": recent_days, "l": limit}).mappings().all()
+
+
+def latest_finished_run(conn: Connection):
+    return conn.execute(text("SELECT result, finished_at FROM sync_runs WHERE kind = 'orders' "
+                             "AND finished_at IS NOT NULL ORDER BY id DESC LIMIT 1")).mappings().first()
