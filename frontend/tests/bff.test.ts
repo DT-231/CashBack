@@ -341,7 +341,7 @@ describe("T-041: allowlist tường minh cho rút tiền, admin, TOTP", () => {
     ["POST", ["admin", "withdrawals", "10", "mark-paid"]], ["GET", ["admin", "withdrawals", "7", "payout-account"]],
     ["GET", ["admin", "overview"]], ["GET", ["admin", "users"]], ["PATCH", ["admin", "users", "5"]], ["GET", ["admin", "orders"]],
     ["GET", ["admin", "orphans"]], ["POST", ["admin", "orphans", "9", "assign"]], ["PUT", ["admin", "shopee-session"]],
-    ["GET", ["admin", "shopee-session", "status"]],
+    ["GET", ["admin", "shopee-session", "status"]], ["GET", ["admin", "health"]], ["GET", ["admin", "reconciliation"]], ["GET", ["admin", "ledger-integrity"]],
   ];
   const no: [string, string[]][] = [
     ["GET", ["admin", "withdrawals", "7", "approve"]], ["POST", ["admin", "withdrawals", "7", "payout-account"]],
@@ -358,7 +358,8 @@ describe("T-041: allowlist tường minh cho rút tiền, admin, TOTP", () => {
     ["POST", ["admin", "overview"]], ["GET", ["admin", "users", "5"]], ["PUT", ["admin", "users", "5"]], ["DELETE", ["admin", "users", "5"]],
     ["PATCH", ["admin", "users", "abc"]], ["PATCH", ["admin", "users", "0"]], ["POST", ["admin", "orders"]], ["GET", ["admin", "orphans", "9", "assign"]],
     ["POST", ["admin", "orphans", "x", "assign"]], ["GET", ["admin", "shopee-session"]], ["POST", ["admin", "shopee-session"]],
-    ["GET", ["admin", "shopee-session", "cookie"]], ["POST", ["admin", "shopee-session", "status"]], ["GET", ["admin", "agent-keys"]],
+    ["GET", ["admin", "shopee-session", "cookie"]], ["POST", ["admin", "health"]], ["POST", ["admin", "reconciliation"]], ["PUT", ["admin", "ledger-integrity"]],
+    ["GET", ["admin", "health", "x"]], ["GET", ["auth", "forgot"]], ["POST", ["auth", "reset"]], ["POST", ["auth", "verify"]], ["POST", ["admin", "shopee-session", "status"]], ["GET", ["admin", "agent-keys"]],
   ];
   it.each(ok)("cho qua %s %j", (m, segs) => expect(isAllowed(m, segs)).toBe(true));
   it.each(no)("chặn %s %j", (m, segs) => expect(isAllowed(m, segs)).toBe(false));
@@ -470,5 +471,56 @@ describe("T-041: /bff/auth/mfa-verify đổi cookie sang phiên đã xác minh h
     const { f, calls } = fakeApi(() => ({ json: TOK(1) }));
     await handleAuth(verifyReq(withTokens, { "cf-connecting-ip": "198.51.100.7" }), "mfa-verify", f);
     expect(calls[0].headers["x-visitor-ip"]).toBe("198.51.100.7");
+  });
+});
+
+
+describe("khôi phục tài khoản qua /bff/auth/* (công khai)", () => {
+  const post = (action: string, body: unknown, o: { cookie?: string; csrf?: boolean; headers?: Record<string, string> } = {}) =>
+    new Request(`${ORIGIN}/bff/auth/${action}`, { method: "POST", headers: { ...(o.cookie ? { cookie: o.cookie } : {}), ...(o.csrf === false ? {} : { "x-csrf": "1" }), origin: ORIGIN, "content-type": "application/json", ...(o.headers ?? {}) }, body: JSON.stringify(body) });
+  const targets: [string, string][] = [["forgot", "auth/forgot"], ["resend-verification", "auth/verify/resend"], ["verify-email", "auth/verify"], ["reset", "auth/reset"]];
+
+  it.each(targets)("%s chuyển tiếp thân yêu cầu tới %s, không cần cookie, không gắn Bearer", async (action, path) => {
+    const { f, calls } = fakeApi(() => ({ status: action === "forgot" || action === "resend-verification" ? 202 : 204 }));
+    const body = { email: "a@b.c", token: "t".repeat(30), password: "mat-khau-moi-1234" };
+    const r = await handleAuth(post(action, body), action, f);
+    expect(r.status).toBe(action === "forgot" || action === "resend-verification" ? 202 : 204);
+    expect(calls).toHaveLength(1);
+    expect(calls[0].url).toBe(`http://api.test/api/v1/${path}`);
+    expect(calls[0].method).toBe("POST");
+    expect(calls[0].body).toBe(JSON.stringify(body));
+    expect(calls[0].headers.authorization).toBeUndefined();
+  });
+  it("bắt buộc X-CSRF/Origin/JSON, và chỉ nhận POST", async () => {
+    const { f, calls } = fakeApi(() => ({ status: 204 }));
+    for (const [action] of targets) {
+      expect((await handleAuth(post(action, {}, { csrf: false }), action, f)).status).toBe(403);
+      expect((await handleAuth(post(action, {}, { headers: { origin: "https://evil.test" } }), action, f)).status).toBe(403);
+    }
+    expect((await handleAuth(new Request(`${ORIGIN}/bff/auth/forgot`, { method: "GET" }), "forgot", f)).status).toBe(405);
+    expect(calls).toHaveLength(0);
+  });
+  it("đặt lại mật khẩu thành công xóa cookie của trình duyệt này; thất bại thì không", async () => {
+    const ok = fakeApi(() => ({ status: 204 }));
+    const r = await handleAuth(post("reset", { token: "t".repeat(30), password: "mat-khau-moi-1234" }, { cookie: withTokens }), "reset", ok.f);
+    expect(setCookies(r)).toHaveLength(2);
+    expect(setCookies(r).every((c) => c.includes("Max-Age=0"))).toBe(true);
+    const bad = fakeApi(() => ({ status: 400, json: { error: { code: "invalid_token", message: "x", request_id: "r" } } }));
+    const r2 = await handleAuth(post("reset", { token: "t".repeat(30), password: "mat-khau-moi-1234" }, { cookie: withTokens }), "reset", bad.f);
+    expect(r2.status).toBe(400);
+    expect((await r2.json()).error.code).toBe("invalid_token");
+    expect(setCookies(r2)).toHaveLength(0);
+    const other = await handleAuth(post("forgot", { email: "a@b.c" }, { cookie: withTokens }), "forgot", fakeApi(() => ({ status: 202 })).f);
+    expect(setCookies(other)).toHaveLength(0);                                      // chỉ `reset` xóa cookie
+    const verify = await handleAuth(post("verify-email", { token: "t".repeat(30) }, { cookie: withTokens }), "verify-email", fakeApi(() => ({ status: 204 })).f);
+    expect(setCookies(verify)).toHaveLength(0);
+  });
+  it("gửi IP khách cho backend (giới hạn tốc độ quên mật khẩu theo IP) và không thêm hành động lạ", async () => {
+    vi.stubEnv("BFF_SHARED_SECRET", "s".repeat(20));
+    const { f, calls } = fakeApi(() => ({ status: 202 }));
+    await handleAuth(post("forgot", { email: "a@b.c" }, { headers: { "cf-connecting-ip": "198.51.100.7" } }), "forgot", f);
+    expect(calls[0].headers["x-visitor-ip"]).toBe("198.51.100.7");
+    for (const unknown of ["verify", "password", "reset/", "Forgot", "forgot "]) expect((await handleAuth(post(unknown, {}), unknown, f)).status).toBe(404);
+    expect(calls).toHaveLength(1);
   });
 });

@@ -69,4 +69,26 @@ export type AdminOrphan = {
   id: number; order_sn: string; status: string; commission_micro: number; commission_vnd: number; purchase_time: string | null; utm_content: string | null; reason: string;
 };
 export type ShopeeSessionStatus = { has_cookie: boolean; status: "unknown" | "healthy" | "degraded" | "expired" | "blocked"; last_ok_at: string | null; failure_count: number; updated_at: string | null };
+/** Sức khỏe hệ thống và đối soát (T-065, T-052). */
+export type HealthStatus = "ok" | "warn" | "down" | "unknown" | "not_configured";
+export type AdminHealth = {
+  overall: "ok" | "warn" | "down";
+  db: { status: HealthStatus; ms?: number };
+  sync: { status: HealthStatus; result?: string; age_hours?: number };
+  shopee_session: { status: HealthStatus; failure_count?: number; has_cookie?: boolean };
+  backup: { status: HealthStatus; latest_age_hours?: number; count?: number };
+  warnings: string[];
+};
+export type OrderBucket = { count: number; commission_micro: number; attributed_micro: number; commission_vnd: number; attributed_vnd: number };
+export type Reconciliation = {
+  month: string;
+  orders: Record<string, OrderBucket>;
+  ledger_by_order_status: Record<string, Record<string, number>>;
+  completed: { shopee_commission_vnd: number; attributed_commission_vnd: number; user_share_accrued_vnd: number; platform_margin_vnd: number };
+  paid_out_vnd: number; admin_loss_vnd: number; note: string;
+};
+export type LedgerIntegrity = {
+  wallets_checked: number; mismatches: number;
+  samples: { user_id: number; stored_pending: number; derived_pending: number; stored_available: number; derived_available: number; stored_held: number; derived_held: number }[];
+};
 export type ApiErrorBody = { error: { code: string; message: string; request_id: string | null } };

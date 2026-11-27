@@ -1,4 +1,4 @@
-/** /bff/auth/{register,login,logout}. Backend trả token trong body; BFF đổi thành cookie HttpOnly và KHÔNG trả token ra ngoài. */
+/** /bff/auth/{register,login,logout,mfa-verify,forgot,reset,verify-email,resend-verification}. Backend trả token trong body; BFF đổi thành cookie HttpOnly và KHÔNG trả token ra ngoài. */
 import { checkCsrf } from "./csrf";
 import { clearCookies, readTokens, sessionCookies, type Tokens } from "./cookies";
 import { errorResponse } from "./errors";
@@ -26,6 +26,13 @@ export async function handleAuth(request: Request, action: string, f: Fetch = fe
         return h;
       })(),
     });
+  }
+  // Khôi phục tài khoản (công khai, không cần cookie). Token nằm trong thân POST, không bao giờ trong URL.
+  const recovery: Record<string, string> = { forgot: "auth/forgot", "resend-verification": "auth/verify/resend", "verify-email": "auth/verify", reset: "auth/reset" };
+  if (action in recovery) {
+    const r = await callApi(f, "POST", recovery[action], { body: await request.text(), requestId: rid, visitor });
+    // Đặt lại mật khẩu thành công: backend đã đăng xuất mọi thiết bị; xóa luôn cookie của trình duyệt này.
+    return passThrough(r, action === "reset" && r.ok ? clearCookies() : []);
   }
   if (action === "mfa-verify") {
     // Backend trả cặp token MỚI có trạng thái đã xác minh hai lớp: BFF thay cookie, không trả token ra trình duyệt.

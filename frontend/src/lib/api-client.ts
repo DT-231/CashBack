@@ -3,8 +3,8 @@
  * Component KHÔNG được gọi `fetch` trực tiếp. Xem docs/adr/0005-web-luu-token-bff-httponly.md.
  */
 import type {
-  AdminOrder, AdminOrphan, AdminOverview, AdminUser, AdminWithdrawalOut, ApiErrorBody, BankAccountIn, BankAccountOut, EntryOut, LinkOut, MfaEnableOut, MfaSetup, MfaStatus, OrderOut,
-  PayoutAccountOut, ShopeeSessionStatus, UserLinkOut, UserOut, WalletOut, WithdrawalOut, WithdrawalRules, WithdrawalStatus,
+  AdminHealth, AdminOrder, AdminOrphan, AdminOverview, AdminUser, AdminWithdrawalOut, ApiErrorBody, BankAccountIn, BankAccountOut, EntryOut, LedgerIntegrity, LinkOut, MfaEnableOut, MfaSetup, MfaStatus, OrderOut,
+  PayoutAccountOut, Reconciliation, ShopeeSessionStatus, UserLinkOut, UserOut, WalletOut, WithdrawalOut, WithdrawalRules, WithdrawalStatus,
 } from "./types";
 
 export class ApiError extends Error {
@@ -116,6 +116,14 @@ export const api = {
     request<void>("POST", `/bff/api/admin/orphans/${orderId}/assign`, { user_id, reason }),
   adminSetShopeeCookie: (cookie: string) => request<void>("PUT", "/bff/api/admin/shopee-session", { cookie }),
   adminShopeeSessionStatus: () => request<ShopeeSessionStatus>("GET", "/bff/api/admin/shopee-session/status"),
+  adminHealth: () => request<AdminHealth>("GET", "/bff/api/admin/health"),
+  adminReconciliation: (month: string) => request<Reconciliation>("GET", `/bff/api/admin/reconciliation?month=${encodeURIComponent(month)}`),
+  adminLedgerIntegrity: () => request<LedgerIntegrity>("GET", "/bff/api/admin/ledger-integrity"),
+  // Khôi phục tài khoản (công khai): token đi trong thân POST
+  forgotPassword: (email: string) => request<{ ok: true }>("POST", "/bff/auth/forgot", { email }),
+  resetPassword: (token: string, password: string) => request<void>("POST", "/bff/auth/reset", { token, password }),
+  verifyEmail: (token: string) => request<void>("POST", "/bff/auth/verify-email", { token }),
+  resendVerification: (email: string) => request<{ ok: true }>("POST", "/bff/auth/resend-verification", { email }),
   walletEntries: (p: { limit?: number; offset?: number } = {}) =>
     request<EntryOut[]>("GET", `/bff/api/me/wallet/entries${qs(p)}`),
 };
