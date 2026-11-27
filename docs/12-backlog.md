@@ -18,7 +18,7 @@ Nguồn dữ liệu máy đọc: `backlog/issues.csv` (cùng nội dung).
 | 5 | PO xác nhận với Shopee (bằng văn bản) về mô hình cashback (R-02) | Chưa | PO | |
 | 6 | Trang Điều khoản và Chính sách quyền riêng tư: bản nháp rồi tư vấn pháp lý (R-06, R-17) | Chưa (T-064) | Claude viết nháp; PO đưa luật sư | |
 | 7 | `audit_logs` xong (ai, hành động, đối tượng, thời điểm, IP băm; không mật khẩu/token/số tài khoản) | **Xong** | Claude | merge `d8073c0` |
-| 8 | Admin bật đăng nhập hai lớp TOTP trước khi bật rút tiền thật (T-019) | Mã xong, chờ PO duyệt merge (`task/T-019`); admin bật thật: **Chưa** | Claude (mã); PO (bật TOTP cho tài khoản admin thật) | `docs/runbooks/admin-mfa.md` |
+| 8 | Admin bật đăng nhập hai lớp TOTP trước khi bật rút tiền thật (T-019) | Mã xong, đã gộp vào `autopilot/main` (chờ PO merge vào `main`); admin bật thật: **Chưa** | Claude (mã); PO (bật TOTP cho tài khoản admin thật) | `docs/runbooks/admin-mfa.md` |
 | 9 | `BANK_ENC_KEY` sao lưu NGOÀI `.env` (hai nơi, tách bản sao lưu DB) | Chưa | PO | `docs/runbooks/withdrawals.md` |
 | 10 | Ứng dụng chạy bằng tài khoản DB riêng `cashback_app` (không sở hữu bảng, không TRUNCATE, không sửa/xóa sổ cái và `audit_logs`) | Script, test, kiểm tra lúc khởi động: **xong** (T-040); triển khai thật: **Chưa** | Claude (script/test); PO (tạo role, đổi `DATABASE_URL` của API) | `infra/db/app-role.sql`, `docs/runbooks/db-roles.md` |
 | 11 | T-041 giao diện rút tiền (người dùng) và admin chi trả hoạt động (kể cả CSV) | Backend/BFF xong (`prep/T-041`); giao diện: Codex đang làm | Claude (backend/BFF); Codex (UI) | `backlog/tasks/T-041a.md`, `T-041b.md` |
