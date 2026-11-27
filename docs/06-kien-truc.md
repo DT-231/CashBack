@@ -13,6 +13,17 @@ Phần này **thay thế** các mục 2, 4, 5, 6 bên dưới ở chỗ mâu thu
 | `sync-worker` + job `pending→available` | **Máy nhà** (IP nhà) | Kết nối Neon qua Internet. Máy tắt thì sync dừng, nhưng cũng đúng ý: không sync thì không chuyển tiền |
 | Backup | `pg_dump` từ máy nhà lên Google Drive/ổ ngoài; thêm bản của chính Neon nếu gói có | |
 
+### Tên miền và Cloudflare Tunnel (cần đọc trước khi mở cho người ngoài)
+
+- **Tunnel có hostname cố định cần một domain riêng** nằm trên Cloudflare DNS. Đây là khoản chi nhỏ (phí domain hằng năm) nên "0đ" của MVP **không còn đúng ở bước mở cho người ngoài**. Dòng "A3: subdomain miễn phí của Cloudflare" trong `01-tong-quan.md` **không áp dụng** cho Tunnel về máy nhà: theo hiểu biết của tôi, `workers.dev`/`pages.dev` chỉ chạy Worker/Pages chứ không trỏ về máy nhà (PO kiểm tra lại khi đăng ký).
+- **Tunnel nhanh (`cloudflared tunnel --url …`, địa chỉ `*.trycloudflare.com`) đổi URL mỗi lần chạy lại và không có cam kết hoạt động**. Chỉ dùng để thử trên máy mình (demo, chạy `live-attribution-test`), **không dùng cho production** và không đưa link đó cho người ngoài.
+- **Hệ quả của việc phụ thuộc domain (phải xử lý ở T-061):**
+  1. **Cookie phiên** (`__Host-access`, `__Secure-refresh`, ADR 0005): `__Host-` buộc `Secure`, `Path=/`, **không có `Domain`**, nên cookie gắn với đúng một hostname. Đổi hostname (hoặc tunnel nhanh đổi URL) thì **mọi người dùng bị đăng xuất**.
+  2. **Kiểm tra `Origin` của BFF** (`lib/bff/csrf.ts`) so với origin của chính request: sau Tunnel, Next.js có thể thấy `Host` khác hostname công khai nên mọi request ghi có thể bị từ chối nhầm. T-061 cần chốt một biến cố định (đề xuất `WEB_ORIGIN=https://<domain>`) và kiểm thử qua Tunnel thật. Biến này **chưa có trong code**.
+  3. **ADR 0005** (mục hệ quả): domain cố định là điều kiện để tiền tố `__Host-` và `Secure` hoạt động; xem mục "Phụ thuộc tên miền" trong ADR.
+  4. **`.env.example` / `frontend/.env.example`:** khi làm T-061 thêm `WEB_ORIGIN` (frontend), và đặt `PUBLIC_BASE` (backend, đã có trong `Settings`) thành domain công khai để `go_url` trả đúng; để trống thì `go_url` là `null`.
+  5. **`/go` trên Cloudflare Worker** cần route trên domain riêng (hoặc `workers.dev` khi thử); link đã phát hành chứa domain, nên đổi domain sau này làm hỏng link cũ: chọn domain **một lần** trước khi phát hành link thật.
+
 Điểm cần PO lưu ý về **AWS**: gói free thường yêu cầu thẻ và có thể phát sinh phí ngoài ý muốn, trái với ràng buộc "không thẻ/không phát sinh phí" lúc đầu. Khuyến nghị **không dùng AWS ở MVP**; nếu vẫn muốn dùng, phải đặt cảnh báo ngân sách (AWS Budgets) trước. IP của AWS cũng sẽ bị Shopee chặn như các datacenter khác, nên không giúp được phần sync.
 
 Hệ quả cho code: `DATABASE_URL` và các kết nối ngoài đều qua biến môi trường; `/go` viết gọn, không phụ thuộc thư viện nặng để chạy được trên Worker; bí mật (khóa mã hóa, cookie) chỉ ở biến môi trường của nơi cần dùng (`sync-worker` giữ khóa giải mã cookie, Worker/`api` không cần cookie).

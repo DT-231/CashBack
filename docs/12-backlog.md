@@ -3,6 +3,19 @@
 Mẫu: *Là … tôi muốn … để …*; acceptance criteria dạng Given/When/Then; `Owner` = agent làm chính (Claude giữ kiến trúc/ví/bảo mật, Codex làm CRUD/UI/test/script).
 Nguồn dữ liệu máy đọc: `backlog/issues.csv` (cùng nội dung).
 
+## Điều kiện mở đăng ký cho người ngoài
+
+**T-061 (đưa web ra Internet cho người ngoài) không được bắt đầu khi chưa tick đủ mục dưới.** Người duyệt từng mục là PO; Claude cập nhật dấu tick khi có bằng chứng (link commit, ghi chú, ảnh chụp).
+
+- [ ] **T-017 xong** (X-Visitor-IP + bí mật chung, kèm T-016 đã merge): giới hạn tốc độ tính đúng theo từng khách qua BFF
+- [ ] **Có domain riêng** trên Cloudflare DNS (Tunnel hostname cố định, cookie `__Host-`, `WEB_ORIGIN`; xem `docs/06` mục 0). Tunnel nhanh `trycloudflare` không được dùng
+- [ ] **Đơn mua thử thật khớp sub_id**: làm theo `docs/runbooks/live-attribution-test.md`; `utm_content` có chữ ký còn nguyên và giải mã `ok`
+- [ ] **PO đã xác nhận với Shopee (bằng văn bản) về mô hình cashback** (rủi ro R-02): chia lại hoa hồng cho người dùng có được phép không, cần đăng ký kênh nào
+- [ ] **Trang Điều khoản và Chính sách quyền riêng tư** (T-064): bản nháp, **cần tư vấn pháp lý** trước khi dùng thật (R-06, R-17)
+- [ ] **`audit_logs` xong** (phần còn thiếu của T-013): ghi ai/hành động/đối tượng/thời điểm/IP băm cho thao tác admin và tiền
+
+Ghi chú: các mục trên là điều kiện **mở cho người ngoài**. Dùng nội bộ (chỉ PO và người quen, không quảng bá) vẫn có thể thử trên máy mình bằng tunnel nhanh.
+
 ## E0 — Nền tảng, hạ tầng, vận hành  (45 điểm)
 
 ### T-001: Là dev, tôi muốn monorepo có lint/format/.gitignore/AGENTS.md để hai agent làm cùng luật
@@ -46,6 +59,7 @@ Nguồn dữ liệu máy đọc: `backlog/issues.csv` (cùng nội dung).
   - Given backup lỗi When job Then cảnh báo
 
 ### T-061: Là PO, tôi muốn chạy web (Next.js) và backend ở máy nhà qua chung một Cloudflare Tunnel
+- **Chỉ bắt đầu khi đã tick đủ "Điều kiện mở đăng ký cho người ngoài" ở đầu file này.**
 - Loại: feature · 5 điểm · Must · Sprint 6 · Owner: claude · Phụ thuộc: T-002, T-012
 - Acceptance criteria:
   - Given tunnel When truy cập từ Internet Then chỉ route cho phép được expose

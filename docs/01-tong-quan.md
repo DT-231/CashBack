@@ -22,7 +22,7 @@
 **Giả định tôi tự đặt (PO sửa nếu sai):**
 - A1: Đội phát triển = **1 người (PO) + Claude Code + Codex**, ~10–15 giờ/tuần (câu 8 chưa rõ).
 - A2: Thời gian giữ `pending` = **đơn `COMPLETED` + 7 ngày**, cấu hình được. Cần PO đối chiếu thời điểm Shopee thực sự trả hoa hồng cho PO (thường là kỳ thanh toán hàng tháng), vì nếu ta trả user trước khi Shopee trả ta thì ta ứng vốn.
-- A3: Domain: dùng subdomain miễn phí của Cloudflare lúc đầu; mua domain riêng khi có user thật.
+- A3: Domain: **cần domain riêng trước khi mở cho người ngoài** (Tunnel hostname cố định cần domain trên Cloudflare DNS; `workers.dev`/`pages.dev` không trỏ về máy nhà; tunnel nhanh `trycloudflare` đổi URL mỗi lần, chỉ để thử). Xem `06-kien-truc.md` mục 0.
 - A4: Khi máy nhà tắt, `/go/` không ghi được click; link dự phòng trỏ thẳng affiliate (vẫn ra tiền, mất log click).
 
 ## Tầm nhìn
