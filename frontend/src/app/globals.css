@@ -45,4 +45,7 @@ textarea { width: 100%; min-height: 48px; padding: 10px 12px; border: 1px solid 
 .admin-table-wrap { max-width: 100%; overflow-wrap: anywhere; }
 .orphan-list form { max-width: 480px; margin-top: 16px; }
 .orphan-confirm { display: grid; justify-items: start; gap: 10px; margin-top: 16px; padding: 16px; border: 1px solid #d4e0d9; border-radius: 8px; background: #f8fbf9; }
+table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+th, td { padding: 8px 4px; border-bottom: 1px solid #d4e0d9; text-align: left; overflow-wrap: anywhere; }
+th { font-size: .85rem; }
 @media (max-width: 480px) { .page { margin: 16px auto; gap: 14px; } .panel { padding: 18px; } .topbar { padding-inline: 16px; flex-wrap: wrap; } }

@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const push = vi.fn();
 const replace = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push, replace }) }));
-vi.mock("@/lib/api-client", () => ({ ApiError: class ApiError extends Error { constructor(public status: number, public code: string, message: string) { super(message); } }, api: { register: vi.fn(), login: vi.fn() } }));
+vi.mock("@/lib/api-client", () => ({ ApiError: class ApiError extends Error { constructor(public status: number, public code: string, message: string) { super(message); } get isAuth() { return this.status === 401 && ["session_expired", "unauthorized"].includes(this.code); } }, api: { register: vi.fn(), login: vi.fn(), resendVerification: vi.fn() } }));
 import { api } from "@/lib/api-client";
 import { AuthForm } from "./AuthForms";
 
@@ -92,5 +92,18 @@ describe("AuthForm", () => {
     fireEvent.change(screen.getByLabelText("Mật khẩu"), { target: { value: "password" } });
     fireEvent.click(screen.getByRole("button", { name: "Đăng nhập" }));
     expect((await screen.findByRole("alert")).textContent).toBe("Bạn thử quá nhiều lần, vui lòng đợi một lát");
+  });
+
+  it("liên kết quên mật khẩu và gửi lại xác minh cho email đăng nhập", async () => {
+    vi.mocked(api.login).mockRejectedValue(new (await import("@/lib/api-client")).ApiError(403, "email_unverified", "unverified", null));
+    vi.mocked(api.resendVerification).mockResolvedValue({ ok: true });
+    render(<AuthForm mode="login" />);
+    fireEvent.change(screen.getByLabelText("Email"), { target: { value: "a@b.com" } });
+    fireEvent.change(screen.getByLabelText("Mật khẩu"), { target: { value: "password" } });
+    expect(screen.getByRole("link", { name: "Quên mật khẩu?" }).getAttribute("href")).toBe("/forgot-password");
+    fireEvent.click(screen.getByRole("button", { name: "Đăng nhập" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Gửi lại email xác minh" }));
+    expect(api.resendVerification).toHaveBeenCalledWith("a@b.com");
+    expect(await screen.findByText("Nếu tài khoản cần xác minh, chúng tôi đã gửi email mới.")).toBeTruthy();
   });
 });

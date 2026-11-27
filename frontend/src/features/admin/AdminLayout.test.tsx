@@ -27,6 +27,8 @@ describe("AdminLayout", () => {
     render(<AdminLayout><p>Nội dung admin</p></AdminLayout>);
     expect(await screen.findByText("Nội dung admin")).toBeTruthy();
     expect(screen.getByRole("link", { name: "Rút tiền" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Sức khỏe" }).getAttribute("href")).toBe("/admin/health");
+    expect(screen.getByRole("link", { name: "Đối soát" }).getAttribute("href")).toBe("/admin/reconciliation");
     fireEvent.click(screen.getByRole("button", { name: "Đăng xuất" }));
     await waitFor(() => expect(mocks.router.replace).toHaveBeenCalledWith("/login"));
   });
