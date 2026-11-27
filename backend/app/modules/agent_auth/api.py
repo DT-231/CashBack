@@ -13,7 +13,10 @@ def bearer(request: Request) -> str | None:
 
 def require_agent(request: Request) -> AgentIdentity:
     """Dependency: bắt buộc Bearer key hợp lệ."""
-    ident = AgentAuth(request.app.state.settings, request.app.state.engine).authenticate(bearer(request))
+    st = request.app.state
+    # engine được tạo lười: phải gọi get_engine() thì khóa trong bảng agent_keys mới được kiểm tra
+    engine = st.get_engine() if st.settings.database_url else None
+    ident = AgentAuth(st.settings, engine).authenticate(bearer(request))
     if ident is None:
         raise Unauthorized("thiếu hoặc sai API key")
     return ident

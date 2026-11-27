@@ -101,3 +101,9 @@ def test_removed_endpoints_are_gone(client):
 def test_request_id_header_roundtrip(client):
     assert client.get("/health", headers={"x-request-id": "abc123"}).headers["x-request-id"] == "abc123"
     assert client.get("/health").headers["x-request-id"]
+
+
+def test_error_body_carries_the_same_request_id_as_header(client):
+    r = client.get("/api/v1/agent/search", params={"keyword": "x"}, headers={"x-request-id": "rid-42"})
+    assert r.status_code == 401 and r.headers["x-request-id"] == "rid-42"
+    assert r.json()["error"]["request_id"] == "rid-42"

@@ -107,3 +107,11 @@ def test_agent_search_has_no_links_and_filters(api):
     r = api.get("/api/v1/agent/search", params={"keyword": "x", "min_sold": 3000}, headers=H()).json()
     assert {i["sold"] >= 3000 for i in r["items"]} == {True}
     assert api.get("/api/v1/agent/search", params={"keyword": "x", "limit": 0}, headers=H()).status_code == 422
+
+
+def test_db_key_works_when_engine_is_created_lazily(make_settings, pg):
+    """Hồi quy: app production không truyền engine; khóa trong agent_keys vẫn phải xác thực được."""
+    key = AgentAuth(make_settings(database_url=DB_URL), pg).issue("itest-lazy")
+    app = TestClient(create_app(make_settings(database_url=DB_URL)), raise_server_exceptions=False)
+    assert app.get("/api/v1/agent/health", headers=H(key)).status_code == 200
+    assert app.get("/api/v1/agent/health", headers=H("nope")).status_code == 401
