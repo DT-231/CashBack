@@ -11,11 +11,10 @@ venv:
 	python3 -m venv $(VENV)
 	$(PY) -m pip install -q -e "backend[dev]"
 
-# pytest: service cũ + hợp đồng. Hai bộ unittest cũ sẽ chuyển vào backend/tests ở bước 4.
+# pytest toàn bộ; test_make_link_regression.py (gốc) kiểm tra lớp tương thích affiliate.py, xóa ở bước 10.
 test:
 	$(PY) -m pytest backend/tests
 	$(PY) test_make_link_regression.py
-	PYTHONPATH=packages/core $(PY) -m unittest discover -s packages/core/tests
 
 # Cần Postgres: docker compose -f infra/docker-compose.yml up -d db migrate seed
 test-db:
@@ -28,7 +27,6 @@ fmt:
 	$(VENV)/bin/ruff format --config backend/pyproject.toml --check . || true
 
 cov:
-	PYTHONPATH=packages/core $(VENV)/bin/coverage run --source=. -m unittest discover -s packages/core/tests
-	$(VENV)/bin/coverage run -a --source=. test_make_link_regression.py
+	$(VENV)/bin/coverage run --source=. test_make_link_regression.py
 	$(VENV)/bin/coverage run -a --source=. -m pytest backend/tests
-	$(VENV)/bin/coverage report --omit='test_*,*/tests/*,apps/*,backend/*'
+	$(VENV)/bin/coverage report --omit='test_*,*/tests/*,apps/*'

@@ -2,7 +2,7 @@ import itertools
 import re
 import unittest
 
-from cashback_core import subid
+from app.core import subid
 
 SECRET = "unit-test-secret-0123456789"
 
