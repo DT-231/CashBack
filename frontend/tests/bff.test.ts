@@ -69,7 +69,7 @@ describe("allowlist", () => {
     expect(isAllowed("POST", ["links"])).toBe(true);
     expect(isAllowed("POST", ["me", "wallet"])).toBe(false);
     expect(isAllowed("GET", ["me", "wallet", "x"])).toBe(false);
-    expect(isAllowed("GET", ["admin", "users"])).toBe(false);
+    expect(isAllowed("GET", ["admin", "agent-keys"])).toBe(false);
     expect(isAllowed("GET", ["auth", "login"])).toBe(false);
     for (const bad of [["me", "..", "wallet"], ["..", "me", "wallet"], ["me", "%2e%2e"], ["me\\wallet"], ["me", ""], ["me/wallet"]]) {
       expect(isAllowed("GET", bad)).toBe(false);
@@ -156,7 +156,7 @@ describe("proxy", () => {
     const r = await handleProxy(req("GET", "/x"), ["me", "wallet"], f);
     expect(r.status).toBe(401);
     expect((await r.json()).error.code).toBe("unauthorized");
-    expect((await handleProxy(req("GET", "/x", { cookie: withTokens }), ["admin", "users"], f)).status).toBe(404);
+    expect((await handleProxy(req("GET", "/x", { cookie: withTokens }), ["admin", "agent-keys"], f)).status).toBe(404);
     expect((await handleProxy(req("POST", "/x", { cookie: withTokens, csrf: false }), ["links"], f)).status).toBe(403);
     expect(calls).toHaveLength(0);
   });
@@ -339,6 +339,9 @@ describe("T-041: allowlist tường minh cho rút tiền, admin, TOTP", () => {
     ["GET", ["admin", "withdrawals", "export.csv"]], ["POST", ["admin", "withdrawals", "7", "approve"]],
     ["POST", ["admin", "withdrawals", "7", "reject"]], ["POST", ["admin", "withdrawals", "123456789012", "fail"]],
     ["POST", ["admin", "withdrawals", "10", "mark-paid"]], ["GET", ["admin", "withdrawals", "7", "payout-account"]],
+    ["GET", ["admin", "overview"]], ["GET", ["admin", "users"]], ["PATCH", ["admin", "users", "5"]], ["GET", ["admin", "orders"]],
+    ["GET", ["admin", "orphans"]], ["POST", ["admin", "orphans", "9", "assign"]], ["PUT", ["admin", "shopee-session"]],
+    ["GET", ["admin", "shopee-session", "status"]],
   ];
   const no: [string, string[]][] = [
     ["GET", ["admin", "withdrawals", "7", "approve"]], ["POST", ["admin", "withdrawals", "7", "payout-account"]],
@@ -348,10 +351,14 @@ describe("T-041: allowlist tường minh cho rút tiền, admin, TOTP", () => {
     ["POST", ["admin", "withdrawals", "-1", "approve"]], ["POST", ["admin", "withdrawals", "1.5", "approve"]],
     ["POST", ["admin", "withdrawals", "1e3", "approve"]], ["POST", ["admin", "withdrawals", "7", "approve", "x"]],
     ["POST", ["admin", "withdrawals", "7%2f..", "approve"]], ["POST", ["admin", "withdrawals", "..", "approve"]],
-    ["POST", ["admin", "withdrawals", "7", "delete"]], ["GET", ["admin", "users"]], ["GET", ["admin", "audit-logs"]],
+    ["POST", ["admin", "withdrawals", "7", "delete"]], ["GET", ["admin", "agent-keys"]], ["GET", ["admin", "audit-logs"]],
     ["POST", ["auth", "mfa", "verify"]], ["POST", ["auth", "login"]], ["POST", ["admin", "withdrawals", "export.csv"]],
     ["POST", ["me", "withdrawals", "rules"]], ["POST", ["auth", "mfa", "status"]], ["GET", ["auth", "mfa", "setup"]],
     ["GET", ["admin", "withdrawals", "7"]], ["GET", ["admin", "withdrawals", "export.csv", "x"]],
+    ["POST", ["admin", "overview"]], ["GET", ["admin", "users", "5"]], ["PUT", ["admin", "users", "5"]], ["DELETE", ["admin", "users", "5"]],
+    ["PATCH", ["admin", "users", "abc"]], ["PATCH", ["admin", "users", "0"]], ["POST", ["admin", "orders"]], ["GET", ["admin", "orphans", "9", "assign"]],
+    ["POST", ["admin", "orphans", "x", "assign"]], ["GET", ["admin", "shopee-session"]], ["POST", ["admin", "shopee-session"]],
+    ["GET", ["admin", "shopee-session", "cookie"]], ["POST", ["admin", "shopee-session", "status"]], ["GET", ["admin", "agent-keys"]],
   ];
   it.each(ok)("cho qua %s %j", (m, segs) => expect(isAllowed(m, segs)).toBe(true));
   it.each(no)("chặn %s %j", (m, segs) => expect(isAllowed(m, segs)).toBe(false));

@@ -73,6 +73,7 @@ def test_admin_assigns_orphan_wallet_accrues_and_audit_is_written(api, pg, setti
     oid = orphan(pg)
     listed = api.get("/api/v1/admin/orphans", headers=ah)
     assert listed.status_code == 200 and oid in [x["id"] for x in listed.json()]
+    assert [x for x in listed.json() if x["id"] == oid][0]["commission_vnd"] == COMMISSION // 100_000
     r = api.post(f"/api/v1/admin/orphans/{oid}/assign", headers=ah, json={"user_id": uid, "reason": "khiếu nại có bằng chứng"})
     assert r.status_code == 204
     with pg.connect() as c:

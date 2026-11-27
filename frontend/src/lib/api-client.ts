@@ -3,8 +3,8 @@
  * Component KHÔNG được gọi `fetch` trực tiếp. Xem docs/adr/0005-web-luu-token-bff-httponly.md.
  */
 import type {
-  AdminWithdrawalOut, ApiErrorBody, BankAccountIn, BankAccountOut, EntryOut, LinkOut, MfaEnableOut, MfaSetup, MfaStatus, OrderOut,
-  PayoutAccountOut, UserLinkOut, UserOut, WalletOut, WithdrawalOut, WithdrawalRules, WithdrawalStatus,
+  AdminOrder, AdminOrphan, AdminOverview, AdminUser, AdminWithdrawalOut, ApiErrorBody, BankAccountIn, BankAccountOut, EntryOut, LinkOut, MfaEnableOut, MfaSetup, MfaStatus, OrderOut,
+  PayoutAccountOut, ShopeeSessionStatus, UserLinkOut, UserOut, WalletOut, WithdrawalOut, WithdrawalRules, WithdrawalStatus,
 } from "./types";
 
 export class ApiError extends Error {
@@ -104,6 +104,18 @@ export const api = {
     request<AdminWithdrawalOut>("POST", `/bff/api/admin/withdrawals/${id}/mark-paid`, { provider_ref }),
   adminPayoutAccount: (id: number) => request<PayoutAccountOut>("GET", `/bff/api/admin/withdrawals/${id}/payout-account`),
   adminExportCsv: () => requestBlob("/bff/api/admin/withdrawals/export.csv"),
+  // Admin console
+  adminOverview: (days = 30) => request<AdminOverview>("GET", `/bff/api/admin/overview${qs({ days })}`),
+  adminUsers: (p: { q?: string; limit?: number; offset?: number } = {}) => request<AdminUser[]>("GET", `/bff/api/admin/users${qs(p)}`),
+  adminSetUserStatus: (id: number, status: "active" | "locked", reason: string) =>
+    request<void>("PATCH", `/bff/api/admin/users/${id}`, { status, reason }),
+  adminOrders: (p: { status?: string; source?: string; limit?: number; offset?: number } = {}) =>
+    request<AdminOrder[]>("GET", `/bff/api/admin/orders${qs(p)}`),
+  adminOrphans: (p: { limit?: number; offset?: number } = {}) => request<AdminOrphan[]>("GET", `/bff/api/admin/orphans${qs(p)}`),
+  adminAssignOrphan: (orderId: number, user_id: number, reason: string) =>
+    request<void>("POST", `/bff/api/admin/orphans/${orderId}/assign`, { user_id, reason }),
+  adminSetShopeeCookie: (cookie: string) => request<void>("PUT", "/bff/api/admin/shopee-session", { cookie }),
+  adminShopeeSessionStatus: () => request<ShopeeSessionStatus>("GET", "/bff/api/admin/shopee-session/status"),
   walletEntries: (p: { limit?: number; offset?: number } = {}) =>
     request<EntryOut[]>("GET", `/bff/api/me/wallet/entries${qs(p)}`),
 };
