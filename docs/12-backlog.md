@@ -205,6 +205,7 @@ Ghi chú: các mục trên là điều kiện **mở cho người ngoài**. Dùn
 ## E4 — Đồng bộ Shopee và đơn hàng  (36 điểm)
 
 ### T-063: Là admin, tôi muốn dán cookie Shopee được mã hóa at-rest và không đọc lại được
+- **Đã làm (2026-11-28, `autopilot/main`)**: backend + worker + trạng thái; giao diện admin: chưa. Cảnh báo Telegram/Email là T-023 (chưa).
 - Loại: feature · 5 điểm · Must · Sprint 2 · Owner: claude · Phụ thuộc: T-012
 - Acceptance criteria:
   - Given cookie When lưu Then DB chỉ có bản mã hóa AES-GCM
