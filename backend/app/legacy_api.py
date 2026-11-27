@@ -13,7 +13,7 @@ from fastapi.responses import JSONResponse
 
 from app.modules.agent_auth.api import require_agent_if_configured
 from app.modules.links import service as links
-from app.modules.links.affiliate_link import LinkConfig, LinkError, link_for_item, parse_product_url
+from app.modules.links.affiliate_link import LinkConfig, LinkError, LinkInputError, link_for_item, parse_product_url
 
 router = APIRouter(tags=["legacy"])
 guard = [Depends(require_agent_if_configured)]   # bắt buộc khóa khi đã cấu hình / lắng nghe ngoài localhost
@@ -88,6 +88,8 @@ async def link(request: Request):
         return _err("item_id và shop_id phải dương", 400)
     try:
         out = link_for_item(item_id, shop_id, sub, LinkConfig.from_settings(request.app.state.settings))
+    except LinkInputError as e:
+        return _err(str(e), 400)
     except LinkError as e:
         return _err(str(e), 500)
     return {"ok": True, **out}

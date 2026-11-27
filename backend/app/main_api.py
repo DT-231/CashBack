@@ -17,6 +17,7 @@ from app.core.errors import error_body, register_error_handlers
 from app.core.logging import configure_logging, set_request_id
 from app.integrations.shopee import build_client
 from app.modules.ai_posts import api as ai_posts_api
+from app.modules.links.affiliate_link import LinkInputError
 from app.modules.products.service import ProductSearch
 
 log = logging.getLogger("app.access")
@@ -58,6 +59,10 @@ def create_app(settings: Settings | None = None, shopee=None, engine: Engine | N
         log.info("request", extra={"method": request.method, "path": request.url.path, "status": resp.status_code,
                                    "ms": round((time.perf_counter() - t0) * 1000, 1)})
         return resp
+
+    @app.exception_handler(LinkInputError)
+    async def _link_input(_: Request, e: LinkInputError):
+        return JSONResponse(error_body("invalid_input", str(e)), status_code=400)
 
     @app.exception_handler(ConfigError)
     async def _config(_: Request, e: ConfigError):

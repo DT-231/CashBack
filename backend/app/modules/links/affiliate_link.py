@@ -29,6 +29,10 @@ class LinkError(ValueError):
     pass
 
 
+class LinkInputError(LinkError):
+    """Input của người dùng sai (vd sub_id quá nhiều slot) -> API trả 400, không phải 500."""
+
+
 @dataclass(frozen=True)
 class LinkConfig:
     aff_id: str
@@ -60,16 +64,22 @@ def parse_product_url(url):
 
 
 def normalize_sub_id(sub_id, pad: bool = True) -> str:
-    """Đưa sub_id về đúng dạng utm_content: đoạn ngăn bằng '-', đủ 5 slot.
+    """Đưa sub_id về đúng dạng utm_content: chữ thường, đoạn ngăn bằng '-', tối đa 5 slot, mỗi slot [0-9a-z]{0,8}.
 
-    "fb01" -> "fb01----"; "fb01-1" -> "fb01-1---"; "fb01-1-2-3-4" giữ nguyên.
+    "fb01" -> "fb01----"; "FB01" -> "fb01----"; "a_b_c" -> "a-b-c--"; "fb01-1-2-3-4" giữ nguyên.
+    Nhiều hơn 5 slot hoặc ký tự lạ -> LinkInputError (nếu để lọt, đơn về sẽ thành 'legacy'/'invalid' = mồ côi).
     """
-    s = str(sub_id if sub_id not in (None, "") else "0").strip()
+    s = str(sub_id if sub_id not in (None, "") else "0").strip().lower()
     s = re.sub(r"[\s_]+", "-", s)
-    if not pad:
-        return s
-    while s.count("-") < SUB_ID_SLOTS - 1:
-        s += "-"
+    parts = s.split("-")
+    if len(parts) > SUB_ID_SLOTS:
+        raise LinkInputError(
+            f"sub_id tối đa {SUB_ID_SLOTS} slot ngăn bằng '-', nhận được {len(parts)}: {s!r}")
+    for p in parts:
+        if not re.fullmatch(r"[0-9a-z]{0,8}", p):
+            raise LinkInputError(f"sub_id chỉ cho phép [0-9a-z], tối đa 8 ký tự mỗi slot: {p!r}")
+    if pad:
+        s = s + "-" * (SUB_ID_SLOTS - len(parts))
     return s
 
 
