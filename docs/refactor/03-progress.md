@@ -6,7 +6,7 @@ Nhánh: `refactor/restructure`. Mỗi dòng = một bước trong `02-target.md`
 |---|---|---|---|
 | 0 | `c92d150` | — | Audit + kế hoạch. Quyết định D1–D3 đã chốt (Postgres ngay) |
 | 1 | `7a6eda5`, `3c8f1db` | — | `backend/pyproject.toml`, `Makefile`, venv `.venv/` (gitignored). Lint tách commit riêng: xóa 3 import thừa, không đổi hành vi |
-| 2 | (commit bước 2) | 73 test pass + 4 xfail strict: contract HTTP (port từ `test_offline.py`, có golden `search_mock.json`, `link_tt09.json`), `store`, `shopee_search`, `feed_search`, `feed_import`, `revenue`, và `test_known_bugs.py` (#1–#4) | `test_offline.py` bị xóa vì đã port (hết ghi đè `samples/sample_feed.csv`, hết cổng cố định). Test chạy 0,4 s. Đã kiểm tra bằng đột biến: đổi `utm_medium` làm 2 test golden fail. Test ghi nhận cả hành vi sai hiện tại (#8 giá ≥ 10 triệu, `0,5%` → 50%, #15 JSON hỏng) để bước 9 biết chỗ cần đổi |
+| 2 | `eb284c3` | 73 test pass + 4 xfail strict: contract HTTP (port từ `test_offline.py`, có golden `search_mock.json`, `link_tt09.json`), `store`, `shopee_search`, `feed_search`, `feed_import`, `revenue`, và `test_known_bugs.py` (#1–#4) | `test_offline.py` bị xóa vì đã port (hết ghi đè `samples/sample_feed.csv`, hết cổng cố định). Test chạy 0,4 s. Đã kiểm tra bằng đột biến: đổi `utm_medium` làm 2 test golden fail. Test ghi nhận cả hành vi sai hiện tại (#8 giá ≥ 10 triệu, `0,5%` → 50%, #15 JSON hỏng) để bước 9 biết chỗ cần đổi |
 
 ## Baseline bổ sung (đo ở bước 1, thay cho các ô "chưa đo" trong 01-audit)
 
