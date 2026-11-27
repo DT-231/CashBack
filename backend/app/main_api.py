@@ -22,6 +22,8 @@ from app.modules.clicks import api as clicks_api
 from app.modules.links.affiliate_link import LinkInputError
 from app.modules.links import api as links_api
 from app.modules.products.service import ProductSearch
+from app.modules.adminstats import api as adminstats_api
+from app.modules.auth import admin_api as auth_admin_api
 from app.modules.auth import mfa_api
 from app.modules.orders import api as orders_api
 from app.modules.shopee_session import api as shopee_session_api
@@ -83,6 +85,8 @@ def create_app(settings: Settings | None = None, shopee=None, engine: Engine | N
     app.include_router(clicks_api.router)
     app.include_router(auth_api.router)
     app.include_router(mfa_api.router)
+    app.include_router(auth_admin_api.router)
+    app.include_router(adminstats_api.router)
     app.include_router(orders_api.router)
     app.include_router(shopee_session_api.router)
     app.include_router(wallet_api.router)

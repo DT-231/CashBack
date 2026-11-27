@@ -6,6 +6,9 @@ from sqlalchemy.exc import IntegrityError
 
 from app.core import security
 from app.core.config import Settings
+from app.core.errors import AppError, Forbidden
+from app.modules.audit import service as audit_service
+from app.modules.audit.service import AuditContext, audited
 from app.modules.auth import repository
 from app.modules.auth.errors import (AccountLocked, EmailTaken, EmailUnverified, InvalidCredentials,
                                      InvalidRefresh)
@@ -70,6 +73,27 @@ class AuthService:
         with self.engine.connect() as conn:
             u = repository.find_by_id(conn, user_id)
         return UserOut(**u) if u and u["status"] == "active" else None
+
+    @audited
+    def set_user_status(self, user_id: int, status: str, reason: str, *, audit: AuditContext) -> None:
+        """Khóa/mở user (admin). Cấm tự đổi trạng thái mình và cấm khóa admin khác (chống tự khóa mình ra ngoài hoặc phá hoại).
+        Khóa thì xóa mọi refresh token (access token vô hiệu ngay vì `user_from_token` kiểm trạng thái mỗi request)."""
+        if audit.actor.role != "admin":
+            raise Forbidden("Chỉ admin được đổi trạng thái người dùng")
+        if status not in ("active", "locked"):
+            raise AppError("status phải là active hoặc locked", code="invalid_status", status=422)
+        if user_id == audit.actor.id:
+            raise AppError("Không được tự đổi trạng thái của chính mình", code="invalid_target", status=422)
+        with self.engine.begin() as conn:
+            row = repository.set_status(conn, user_id, status)
+            if row is None:
+                raise AppError("Không có người dùng này", code="user_not_found", status=404)
+            if row["role"] == "admin":
+                raise AppError("Không được đổi trạng thái tài khoản admin qua API", code="invalid_target", status=422)   # rollback: chưa commit
+            if status == "locked":
+                repository.delete_all(conn, user_id)
+            audit_service.record(conn, audit.settings, audit.actor, "users.set_status", target_type="user", target_id=user_id,
+                                 detail={"from": row["old"], "to": status, "reason": reason}, ip=audit.ip)
 
     def logout_all(self, user_id: int) -> None:
         with self.engine.begin() as conn:

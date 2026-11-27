@@ -318,6 +318,7 @@ Ghi chú: các mục trên là điều kiện **mở cho người ngoài**. Dùn
 ## E8 — Admin và đối soát  (19 điểm)
 
 ### T-043: Là admin, tôi muốn dashboard tổng quan, quản lý user và đơn
+- **Backend đã làm (2026-11-28, `autopilot/main`)**: overview, users (tìm, khóa/mở), orders; xem `docs/08-api.md`. **Giao diện admin: chưa làm** (việc cho Codex). Quyết định staff→admin: xem `docs/autopilot/DECISIONS.md`.
 - Loại: feature · 8 điểm · Must · Sprint 4 · Owner: codex · Phụ thuộc: T-012, T-021
 - Acceptance criteria:
   - Given admin When mở Then thấy click/đơn/hoa hồng/ví/cookie status

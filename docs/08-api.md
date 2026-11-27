@@ -60,9 +60,10 @@ POST /api/v1/agent/links  {"shop_id":1020310358,"item_id":24088489429,"post_key"
 ## Admin / Staff
 | Method | Path | Quyền | Mô tả |
 |---|---|---|---|
-| GET | `/admin/overview?days=` | staff+ | KPI tổng |
-| GET | `/admin/users`, PATCH `/admin/users/{id}` | staff (xem), admin (sửa) | Khóa/mở |
-| GET | `/admin/orders?status=&source=` | staff+ | |
+| GET | `/admin/overview?days=` | **admin** (+TOTP) | KPI: người dùng, click, link, đơn theo trạng thái (hoa hồng micro), đơn mồ côi mở, tổng ví (VND nguyên), yêu cầu rút theo trạng thái, lần sync gần nhất |
+| GET | `/admin/users?q=&limit=&offset=` | **admin** | Tìm theo email (khớp chữ, không wildcard), kèm số dư ví |
+| PATCH | `/admin/users/{id}` | **admin** (+TOTP) | `{status: active\|locked, reason}`; khóa thì xóa mọi refresh token; cấm tự đổi mình và đổi admin khác; audit `users.set_status`. Role không đổi qua API |
+| GET | `/admin/orders?status=&source=` | **admin** | Danh sách đơn (lọc theo trạng thái/nguồn) |
 | GET | `/admin/orphans`, POST `/admin/orphans/{order_id}/assign` | **admin** (+TOTP; staff không: gán đơn là tạo tiền cho user) | `{user_id, reason}`; gán đúng một lần, cấm tự gán cho mình, user phải đang hoạt động; ví tự ghi nhận ở lần chốt kế tiếp; audit `orders.assign_orphan` |
 | GET | `/admin/withdrawals?status=` | **admin** | Chỉ 4 số cuối tài khoản |
 | POST | `/admin/withdrawals/{id}/approve` / `/reject` `{reason}` / `/fail` `{reason}` | **admin** (staff không) | Từ chối/lỗi hoàn tiền bằng bút toán `refund_hold` mới; trạng thái đổi có điều kiện (không làm hai lần) |

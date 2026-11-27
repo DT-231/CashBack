@@ -14,3 +14,11 @@
 - Thay thế: staff được gán nhưng admin duyệt (cần luồng duyệt mới); cho staff gán kèm giới hạn số tiền.
 - Đảo ngược: đổi `require_admin` sang vai trò staff+ ở `orders/api.py` và bỏ kiểm tra role ở `admin_service.py` (cần PO quyết).
 - PO nên xem lại.
+
+## 2026-11-28 T-043: ai xem tổng quan/danh sách user và khóa user
+- Bối cảnh: `08-api.md` ghi staff xem được; danh sách user chứa email và số dư (PII, tiền).
+- Chọn: **admin + TOTP cho tất cả** endpoint T-043 (fail-closed, nhất quán với "staff không xem tiền").
+- Quy tắc khóa: cấm tự khóa mình và cấm đổi trạng thái admin khác qua API (tránh tự khóa ra ngoài hoặc admin bị chiếm khóa admin còn lại); khóa xóa refresh token; role đổi bằng tay ở DB.
+- Thay thế: staff xem (chỉ-đọc) sau khi PO xác nhận danh sách trường được phép; admin khóa được admin khác kèm xác nhận hai người.
+- Đảo ngược: đổi `require_admin` ở `adminstats/api.py` sang dependency cho staff.
+- PO nên xem lại.
