@@ -48,7 +48,8 @@ def pg():
 @pytest.fixture
 def settings(make_settings):
     def make(**kw):
-        base = dict(database_url=DB_URL, jwt_secret="j" * 40, ip_salt="i" * 24, withdrawals_enabled=True, bank_enc_key=KEY)
+        base = dict(database_url=DB_URL, jwt_secret="j" * 40, ip_salt="i" * 24, withdrawals_enabled=True, bank_enc_key=KEY,
+                    admin_mfa_required=False)   # luồng TOTP được test riêng ở test_mfa.py
         return make_settings(**{**base, **kw})
     return make
 

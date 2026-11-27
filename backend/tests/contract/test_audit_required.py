@@ -7,13 +7,14 @@ import pytest
 from app.main_api import create_app
 from app.modules.audit.errors import InvalidAudit
 from app.modules.audit.service import Actor, AuditContext, audited
+from app.modules.auth.mfa_service import MfaService
 from app.modules.payout import api as payout_api
 from app.modules.payout.service import PayoutService
 from app.modules.platform_settings.service import PlatformSettings
 from app.modules.wallet.money import WalletMoney
 
 # Mọi lớp service tiền/payout: (lớp, tập hàm chỉ-đọc được miễn)
-GUARDED = [(PayoutService, PayoutService.READ_ONLY), (WalletMoney, WalletMoney.READ_ONLY)]
+GUARDED = [(PayoutService, PayoutService.READ_ONLY), (WalletMoney, WalletMoney.READ_ONLY), (MfaService, MfaService.READ_ONLY)]
 
 
 def public_callables(cls):

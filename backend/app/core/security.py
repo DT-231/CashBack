@@ -35,10 +35,13 @@ def _secret(settings: Settings) -> str:
     return s
 
 
-def make_access_token(settings: Settings, user_id: int, role: str) -> str:
+def make_access_token(settings: Settings, user_id: int, role: str, mfa_at: int | None = None) -> str:
+    """`mfa_at`: epoch giây của lần nhập mã TOTP/mã khôi phục gần nhất của phiên này (None = chưa xác minh hai lớp)."""
     now = int(time.time())
     claims = {"sub": str(user_id), "role": role, "typ": "access", "iat": now,
               "exp": now + settings.access_ttl_min * 60}
+    if mfa_at is not None:
+        claims["mfa_at"] = int(mfa_at)
     return jwt.encode(claims, _secret(settings), algorithm="HS256")
 
 
