@@ -83,6 +83,7 @@ Ghi chú: các mục trên là điều kiện **mở cho người ngoài**. Dùn
   - Given bản nháp When gửi PO Then đánh dấu cần tư vấn pháp lý
 
 ### T-065: Là admin, tôi muốn log có cấu trúc, che bí mật và trang health
+- **Backend đã làm (2026-11-28, `autopilot/main`)**: che log theo mẫu khóa (token, secret, cookie, bearer, JWT, mật khẩu trong URL...) và `GET /api/v1/admin/health`. Trang health trên web: chưa.
 - Loại: feature · 3 điểm · Must · Sprint 6 · Owner: codex · Phụ thuộc: T-002
 - Acceptance criteria:
   - Given log When có cookie/token Then bị che
