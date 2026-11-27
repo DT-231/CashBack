@@ -1,27 +1,32 @@
 # ADR 0005 — Web lưu token bằng cookie HttpOnly qua lớp BFF (Next.js), JS trình duyệt không bao giờ thấy token
 
 - **Trạng thái:** đề xuất (chờ PO duyệt). Ngày 2026-11-27.
-- **Bối cảnh:** backend cấp `access token` (JWT, 15 phút) và `refresh token` (ngẫu nhiên, 30 ngày, xoay vòng, phát hiện dùng lại) ở `/api/v1/auth/*`; thiết kế dùng chung cho web và app mobile sau này (`docs/refactor/02-target.md`). Web chạy ở Cloudflare Pages (hoặc Vercel), API ở máy nhà sau Tunnel: **hai origin khác site** (chưa có domain riêng, `docs/06`). Web sẽ hiển thị ví, số dư, link affiliate, nên token bị lộ = mất tiền của user.
+- **Bối cảnh:** backend cấp `access token` (JWT, 15 phút) và `refresh token` (ngẫu nhiên, 30 ngày, xoay vòng, phát hiện dùng lại) ở `/api/v1/auth/*`; thiết kế dùng chung cho web và app mobile sau này (`docs/refactor/02-target.md`). Web (Next.js, chạy `next start` ở máy nhà, không dùng Vercel Hobby vì chỉ phi thương mại) và API cùng nằm sau một Cloudflare Tunnel; BFF gọi API qua `127.0.0.1`, API chỉ lắng nghe `127.0.0.1` (`docs/06` mục 0). Web sẽ hiển thị ví, số dư, link affiliate, nên token bị lộ = mất tiền của user.
 
 ## Các phương án
 | | Cách | Vì sao loại / chọn |
 |---|---|---|
 | A | Token trong `localStorage`/`sessionStorage` | Một lỗ XSS lấy được cả access và refresh token. **Loại.** |
-| B | Access trong bộ nhớ JS, refresh trong cookie do **backend** đặt | Cookie khác site: cần `SameSite=None` + CORS credentials, Safari/Chrome chặn cookie bên thứ ba ⇒ hỏng không đoán trước được. Chỉ khả thi khi web và API cùng domain đăng ký (cần mua domain). **Hoãn**, xem lại khi có domain |
+| B | Access trong bộ nhớ JS, refresh trong cookie do **backend** đặt | Backend phải đặt cookie và bật CORS có credentials; access token vẫn nằm trong JS nên XSS vẫn lấy được. **Loại** (có thể xét lại khi UI và API cùng domain đăng ký) |
 | C | **BFF**: route handler của Next.js đặt cookie HttpOnly trên origin của **web** và chuyển tiếp mọi lời gọi sang API | Trình duyệt chỉ nói chuyện cùng origin (không CORS), JS không đọc được token. **Chọn.** |
 
 ## Quyết định (phương án C)
 1. **Cookie** (đặt bởi BFF, không bao giờ bởi JS):
    - `__Host-access`: access token; `HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age` = `expires_in`.
-   - `__Secure-refresh`: refresh token; `HttpOnly; Secure; SameSite=Strict; Path=/bff/auth; Max-Age=30 ngày` (chỉ gửi tới endpoint refresh/logout).
+   - `__Secure-refresh`: refresh token; `HttpOnly; Secure; SameSite=Strict; Path=/bff; Max-Age=30 ngày` (chỉ gửi tới `/bff/*`, không tới trang HTML; cần `/bff/api/*` vì BFF tự làm mới khi gặp 401). Môi trường dev (HTTP) dùng tên không tiền tố và không `Secure`.
 2. **BFF chỉ là ống dẫn và quản lý token.** Không có nghiệp vụ, không tính tiền, không đổi hình dạng dữ liệu. Các route:
    - `POST /bff/auth/{register,login,logout}`; `POST /bff/auth/refresh` (nội bộ).
    - `/bff/api/<path>` chuyển tiếp tới `API_BASE_URL/api/v1/<path>` theo **danh sách cho phép** (đường dẫn + phương thức), gắn `Authorization: Bearer` từ cookie. Gặp `401` thì tự làm mới token **một lần** rồi thử lại; làm mới lỗi (`invalid_refresh`) thì xóa cookie và trả `401 session_expired` để UI chuyển về đăng nhập.
    - `API_BASE_URL` chỉ là biến môi trường **phía server** (không `NEXT_PUBLIC_`). CORS của backend vẫn tắt.
-3. **CSRF:** `SameSite=Strict` cộng với kiểm tra bắt buộc cho mọi phương thức ghi: header `X-CSRF: 1` và `Origin` phải trùng origin của web; chỉ nhận `application/json`.
+3. **CSRF** (trả lời câu hỏi cookie HttpOnly có bị CSRF không: có, nên chặn nhiều lớp):
+   - `SameSite=Strict` cho cả hai cookie: trình duyệt không gửi cookie trong request xuất phát từ site khác.
+   - Mọi phương thức ghi (`POST/PUT/PATCH/DELETE`) bắt buộc có header `X-CSRF: 1` **và** `Origin` trùng chính xác origin của web (so sánh nguyên chuỗi, thiếu `Origin` thì từ chối); chỉ nhận `Content-Type: application/json`. Trang của site khác không thêm được header tùy biến mà không qua CORS preflight, và BFF không bật CORS, nên request bị chặn.
+   - Không dùng CSRF token đồng bộ (synchronizer token): header tùy biến + kiểm tra Origin + SameSite=Strict đã đủ cho API chỉ-JSON, và token trong trang sẽ thêm trạng thái phải giữ. Nếu sau này có form HTML thường hoặc upload `multipart`, phải thêm CSRF token trước.
+   - Request `GET` không bao giờ thay đổi dữ liệu (allowlist chỉ cho `GET` đọc).
 4. **Đăng xuất:** gọi `/api/v1/auth/logout` (backend thu hồi mọi refresh token của user, nghĩa là đăng xuất mọi thiết bị) rồi xóa cookie.
 5. **Không bao giờ** log, trả về trong body, hay đưa vào URL: access/refresh token, `Set-Cookie` của backend. Phản hồi lỗi từ API được chuyển nguyên định dạng `{"error":{code,message,request_id}}`.
-6. **App mobile sau này** dùng thẳng `/api/v1/auth/*`, lưu token trong Keychain/Keystore; backend không đổi.
+6. **Backend vẫn nhận bearer token** (trả lời câu hỏi app iOS gọi thẳng): backend chỉ đọc `Authorization: Bearer <access>`, **không đọc cookie nào**, nên cookie không phải đường xác thực của backend và CSRF không áp dụng cho backend. App iOS gọi thẳng `/api/v1/auth/*`, lưu token trong Keychain, gửi bearer; không đi qua BFF và không cần đổi backend. Cookie HttpOnly chỉ là cách **BFF** giữ token hộ trình duyệt.
+7. **Bí mật chung BFF↔backend** (`BFF_SHARED_SECRET`, dùng ở T-017): chỉ là biến môi trường **phía server** của Next.js và của backend, **không có tiền tố `NEXT_PUBLIC_`** (Next.js nhúng mọi biến `NEXT_PUBLIC_*` vào JS gửi trình duyệt). Chỉ đọc trong code route handler của BFF, không đưa vào bundle client, không log, không đưa vào `.env.example` giá trị thật. Test của frontend (`tests/ui-rules`) có luật cấm `NEXT_PUBLIC_` xuất hiện trong mã nguồn; mất secret thì xoay ở cả hai phía.
 
 ## Luật cho giao diện (bắt buộc, kiểm bằng test)
 - **UI không tự tính tiền.** Mọi số tiền (`*_vnd`), tỷ lệ (`share_pct`) và mốc thời gian (ví dụ "dự kiến vào ví lúc …") do API trả về; UI chỉ hiển thị và định dạng qua `lib/format.ts`. Cấm nhân/chia/cộng các giá trị tiền, cấm nhân với tỷ lệ, cấm tự cộng `hold_days` vào ngày. Cần số mới thì thêm vào API, không tính ở UI.
@@ -29,7 +34,7 @@
 - Không có logic nghiệp vụ trong Next.js ngoài BFF nói ở trên (không server actions xử lý nghiệp vụ).
 
 ## Hệ quả và việc còn mở
-- **IP người dùng qua BFF (cần xử lý trước khi bật rate limit thật qua web):** nếu mọi lời gọi `/auth/*` đi qua BFF thì backend chỉ thấy IP của Cloudflare, nên giới hạn theo IP (T-013) sẽ gộp mọi user vào chung một bộ đếm. Hướng xử lý: BFF gửi `X-Visitor-IP` kèm bí mật chung `BFF_SHARED_SECRET`; `core/clientip.client_ip` chỉ tin header này khi bí mật khớp (so sánh hằng thời gian). Cần làm ở một task riêng của Claude (đụng `core/`), **trước khi mở đăng ký cho người ngoài**.
+- **IP người dùng qua BFF (CHẶN việc mở đăng ký cho người ngoài; backlog T-017 và T-016):** nếu mọi lời gọi `/auth/*` đi qua BFF thì backend chỉ thấy IP của Cloudflare, nên giới hạn theo IP (T-013) sẽ gộp mọi user vào chung một bộ đếm. Hướng xử lý: BFF lấy IP thật từ `CF-Connecting-IP` rồi gửi `X-Visitor-IP` kèm `X-BFF-Secret`; `core/clientip.client_ip` chỉ tin `X-Visitor-IP` khi secret khớp (so sánh hằng thời gian), nếu không thì dùng IP kết nối. App iOS gọi thẳng nên không có header này và bị tính theo IP kết nối. API chỉ bind `127.0.0.1`; khởi động bị từ chối nếu `TRUST_PROXY_HEADERS=1` mà bind ngoài localhost (T-016, đã làm).
 - Hai tab làm mới cùng lúc: backend có khoảng ân hạn 10 giây nên không đăng xuất nhầm, nhưng bên thua có thể nhận `401` một lần; BFF thử đọc lại cookie trước khi kết luận.
-- Edge runtime của Cloudflare Pages không giữ trạng thái giữa các lần gọi: BFF **không** được dựa vào bộ nhớ tiến trình để khóa.
-- Khi có domain riêng (cùng site với API) có thể chuyển sang phương án B mà không đổi UI, vì UI chỉ biết `lib/api-client.ts`.
+- BFF chạy tiến trình Node ở máy nhà nên có thể khởi động lại bất cứ lúc nào: không giữ trạng thái quan trọng trong bộ nhớ tiến trình (không khóa làm mới token bằng biến toàn cục).
+- Nếu sau này chuyển web sang nơi khác (có domain riêng) vẫn giữ BFF; đổi phương án chỉ ảnh hưởng `lib/bff`, không ảnh hưởng UI, vì UI chỉ biết `lib/api-client.ts`.
