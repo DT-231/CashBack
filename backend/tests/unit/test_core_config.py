@@ -98,3 +98,33 @@ def test_bff_warning_is_logged_at_startup(monkeypatch, caplog):
     with caplog.at_level(logging.WARNING):
         main_api.main()
     assert called.get("ran") and any("BFF_SHARED_SECRET" in r.getMessage() for r in caplog.records)
+
+
+def test_main_refuses_to_start_when_withdrawals_enabled_and_db_user_is_privileged(monkeypatch):
+    from app import main_api
+    from app.core import db as dbmod
+    started = {}
+    import base64
+    import os
+    key = base64.urlsafe_b64encode(os.urandom(32)).decode()
+    monkeypatch.setattr(main_api, "load_settings", lambda: Settings(withdrawals_enabled=True, bank_enc_key=key, database_url="postgresql://x"))
+    monkeypatch.setattr(dbmod, "make_engine", lambda s: type("E", (), {"dispose": lambda self: None})())
+    monkeypatch.setattr("uvicorn.run", lambda *a, **k: started.setdefault("ran", True))
+
+    def refuse(engine):
+        raise ConfigError("user DB là superuser")
+    monkeypatch.setattr(dbmod, "assert_least_privilege", refuse)
+    with pytest.raises(ConfigError, match="superuser"):
+        main_api.main()
+    assert "ran" not in started                                        # không khởi động server
+
+
+def test_main_skips_the_db_privilege_check_when_withdrawals_disabled(monkeypatch):
+    from app import main_api
+    from app.core import db as dbmod
+    called = []
+    monkeypatch.setattr(main_api, "load_settings", lambda: Settings())
+    monkeypatch.setattr(dbmod, "assert_least_privilege", lambda e: called.append(1))
+    monkeypatch.setattr("uvicorn.run", lambda *a, **k: None)
+    main_api.main()
+    assert called == []

@@ -90,6 +90,11 @@ def main() -> None:
     import uvicorn
     s = load_settings()
     s.validate_for_serving()
+    if s.withdrawals_enabled:      # bật rút tiền: API không được chạy bằng superuser/chủ bảng (kiểm bằng truy vấn)
+        from app.core.db import assert_least_privilege, make_engine
+        engine = make_engine(s)
+        assert_least_privilege(engine)
+        engine.dispose()
     for w in s.startup_warnings():
         log.warning(w)
     uvicorn.run(create_app(s), host=s.host, port=s.port, log_config=None)
