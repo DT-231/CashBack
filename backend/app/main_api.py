@@ -19,6 +19,7 @@ from app.integrations.shopee import build_client
 from app.modules.ai_posts import api as ai_posts_api
 from app.modules.auth import api as auth_api
 from app.modules.links.affiliate_link import LinkInputError
+from app.modules.links import api as links_api
 from app.modules.products.service import ProductSearch
 
 log = logging.getLogger("app.access")
@@ -72,6 +73,7 @@ def create_app(settings: Settings | None = None, shopee=None, engine: Engine | N
     register_error_handlers(app)
     app.include_router(legacy_api.router)
     app.include_router(ai_posts_api.router)
+    app.include_router(links_api.router)
     app.include_router(auth_api.router)
     return app
 
