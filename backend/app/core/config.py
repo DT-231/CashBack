@@ -72,6 +72,14 @@ class Settings(BaseSettings):
     refresh_ttl_days: int = 30
     require_email_verify: bool = False       # bật khi đã có gửi email (T-011)
 
+    # --- giới hạn tốc độ ---
+    rl_enabled: bool = True
+    rl_register_per_hour: int = Field(default=5, ge=1)
+    rl_login_per_minute: int = Field(default=10, ge=1)
+    rl_login_per_email_15min: int = Field(default=10, ge=1)
+    rl_refresh_per_minute: int = Field(default=30, ge=1)
+    rl_go_per_minute: int = Field(default=120, ge=1)
+
     # --- DB ---
     database_url: str = ""
 

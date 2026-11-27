@@ -3,7 +3,9 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Request
 
+from app.core.clientip import client_ip
 from app.core.errors import Unauthorized
+from app.core.ratelimit import enforce_ip_limit, enforce_rate_limits
 from app.modules.auth.schemas import LoginIn, RefreshIn, RegisterIn, TokenOut, UserOut
 from app.modules.auth.service import AuthService
 
@@ -29,16 +31,23 @@ def current_user(request: Request) -> UserOut:
 
 @router.post("/register", status_code=201, response_model=UserOut)
 def register(body: RegisterIn, request: Request):
+    enforce_ip_limit(request, "register_ip", request.app.state.settings.rl_register_per_hour, 3600)
     return _service(request).register(body.email, body.password)
 
 
 @router.post("/login", response_model=TokenOut)
 def login(body: LoginIn, request: Request):
+    settings = request.app.state.settings
+    enforce_rate_limits(request, [
+        ("login_ip", client_ip(request, settings.trust_proxy_headers), settings.rl_login_per_minute, 60),
+        ("login_email", body.email, settings.rl_login_per_email_15min, 900),
+    ])
     return _service(request).login(body.email, body.password)
 
 
 @router.post("/refresh", response_model=TokenOut)
 def refresh(body: RefreshIn, request: Request):
+    enforce_ip_limit(request, "refresh_ip", request.app.state.settings.rl_refresh_per_minute, 60)
     return _service(request).refresh(body.refresh_token)
 
 

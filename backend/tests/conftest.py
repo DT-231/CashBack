@@ -8,6 +8,8 @@ SENSITIVE = [
     "SEARCH_ENGINE", "LINK_TEMPLATE", "AFF_CAMPAIGN", "SUB_ID_PAD", "PW_STATE", "AGENT_API_KEY", "SUBID_SECRET",
     "HOST", "PORT", "CORS_ORIGINS", "DATABASE_URL", "JWT_SECRET", "ACCESS_TTL_MIN", "REFRESH_TTL_DAYS",
     "REQUIRE_EMAIL_VERIFY", "IP_SALT", "TRUST_PROXY_HEADERS", "SYNC_DAYS", "SYNC_MAX_AGE_HOURS",
+    "RL_ENABLED", "RL_REGISTER_PER_HOUR", "RL_LOGIN_PER_MINUTE", "RL_LOGIN_PER_EMAIL_15MIN",
+    "RL_REFRESH_PER_MINUTE", "RL_GO_PER_MINUTE",
 ]
 
 
@@ -24,7 +26,7 @@ def make_settings():
     """Settings cô lập: không đọc .env, MOCK bật, khóa sub_id đủ dài."""
     def make(**kw):
         from app.core.config import Settings
-        base = dict(mock=True, shopee_aff_id="17399999999", subid_secret="s" * 32)
+        base = dict(mock=True, shopee_aff_id="17399999999", subid_secret="s" * 32, rl_enabled=False)
         return Settings(_env_file=None, **{**base, **kw})
     return make
 
