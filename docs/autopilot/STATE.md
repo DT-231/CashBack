@@ -10,7 +10,7 @@ T-018, T-019 (TOTP), prep/T-041 (backend+BFF), T-041a, T-041b (squash), startup-
 (xem LOG.md dòng cuối)
 
 ## Tiếp theo (ưu tiên)
-1. Ghi `auth.login` (và login_failed) vào audit_logs
+1. (đã xong auth.login; login_failed cố ý không ghi: tránh phình bảng, rate limit đã có)
 3. main_worker/app/jobs, legacy_api, rà soát bảo mật, runbook thiếu, độ phủ test
 
 ## Nhánh chờ
