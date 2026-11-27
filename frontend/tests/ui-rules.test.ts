@@ -53,3 +53,16 @@ describe("format", () => {
     expect(formatDateTime("2100-01-02T03:04:00Z")).toBe("10:04 02/01/2100");   // locale vi-VN viết giờ trước; đủ 4 chữ số năm; giờ Việt Nam (UTC+7)
   });
 });
+
+describe("bí mật phía server không lọt ra trình duyệt (ADR 0005, mục 7)", () => {
+  // Next.js nhúng mọi biến NEXT_PUBLIC_* vào JS gửi trình duyệt: API_BASE_URL và BFF_SHARED_SECRET không bao giờ được dùng tiền tố này.
+  const LEAK = /process\.env\.NEXT_PUBLIC_|process\.env\[\s*["'`]NEXT_PUBLIC_|import\.meta\.env/;
+  it("không đọc biến NEXT_PUBLIC_ trong mã nguồn", () => {
+    const bad = files(SRC).filter((f) => LEAK.test(readFileSync(f, "utf8"))).map((f) => path.relative(SRC, f));
+    expect(bad).toEqual([]);
+  });
+  it("bộ quét bắt được vi phạm", () => {
+    for (const s of ["process.env.NEXT_PUBLIC_API", "process.env['NEXT_PUBLIC_BFF_SHARED_SECRET']", "import.meta.env.X"]) expect(LEAK.test(s), s).toBe(true);
+    expect(LEAK.test("process.env.API_BASE_URL")).toBe(false);
+  });
+});
