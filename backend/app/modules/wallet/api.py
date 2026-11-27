@@ -5,10 +5,11 @@ from fastapi import APIRouter, Depends, Query, Request
 
 from app.modules.auth.api import current_user
 from app.modules.auth.schemas import UserOut
-from app.modules.wallet.schemas import EntryOut, WalletOut
+from app.modules.wallet.schemas import EntryOut, OrderOut, WalletOut
 from app.modules.wallet.service import WalletService
 
 router = APIRouter(prefix="/api/v1/me/wallet", tags=["wallet"])
+orders_router = APIRouter(prefix="/api/v1/me/orders", tags=["wallet"])
 
 
 def _service(request: Request) -> WalletService:
@@ -24,3 +25,9 @@ def my_wallet(request: Request, user: UserOut = Depends(current_user)):
 def my_entries(request: Request, limit: int = Query(50, ge=1, le=100), offset: int = Query(0, ge=0),
                user: UserOut = Depends(current_user)):
     return _service(request).entries(user.id, limit, offset)
+
+
+@orders_router.get("", response_model=list[OrderOut])
+def my_orders(request: Request, limit: int = Query(50, ge=1, le=100), offset: int = Query(0, ge=0),
+              user: UserOut = Depends(current_user)):
+    return _service(request).my_orders(user.id, limit, offset)

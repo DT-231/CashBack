@@ -79,6 +79,7 @@ def create_app(settings: Settings | None = None, shopee=None, engine: Engine | N
     app.include_router(clicks_api.router)
     app.include_router(auth_api.router)
     app.include_router(wallet_api.router)
+    app.include_router(wallet_api.orders_router)
     return app
 
 

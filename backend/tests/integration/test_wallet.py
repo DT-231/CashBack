@@ -503,3 +503,82 @@ def test_settle_result_orders_counts_only_processed_orders(pg, settings):
     make_order(pg, u)
     make_order(pg, u, commission=0)
     assert wallet_svc(settings, pg, D(1)).settle().orders == 1
+
+
+# ---------- GET /me/orders (T-034): mốc dự kiến do backend tính ----------
+def by_id(orders):
+    return {o.id: o for o in orders}
+
+
+def test_my_orders_states_amounts_and_expected_release(pg, settings):
+    u = make_user(pg)
+    pending = make_order(pg, u)                                                        # PENDING: chưa biết ngày hoàn tất
+    waiting = make_order(pg, u, status="COMPLETED", completed_at=D(5))                 # hoàn tất D(5), giữ 7 ngày => D(12)
+    paid = make_order(pg, u, status="COMPLETED", completed_at=D(1))                    # hoàn tất D(1) => tới hạn D(8)
+    cancelled = make_order(pg, u)
+    nothing = make_order(pg, u, commission=0)
+    wallet_svc(settings, pg, D(1)).settle()                                            # accrual cho các đơn có hoa hồng
+    set_order(pg, cancelled, status="CANCELLED")
+    wallet_svc(settings, pg, D(9)).settle()                                            # release "paid", cancel "cancelled", "waiting" chưa tới hạn
+    got = by_id(wallet_svc(settings, pg, D(9)).my_orders(u))
+    assert (got[pending].refund_state, got[pending].refund_vnd, got[pending].expected_release_at) == ("pending", 24_225, None)
+    assert (got[waiting].refund_state, got[waiting].refund_vnd, got[waiting].expected_release_at) == ("pending", 24_225, D(12))
+    assert (got[paid].refund_state, got[paid].refund_vnd, got[paid].expected_release_at) == ("available", 24_225, None)
+    assert (got[cancelled].refund_state, got[cancelled].refund_vnd, got[cancelled].expected_release_at) == ("cancelled", 0, None)
+    assert (got[nothing].refund_state, got[nothing].refund_vnd, got[nothing].expected_release_at) == ("none", 0, None)
+
+
+def test_expected_release_is_completed_at_plus_hold_days_in_force_at_completion(pg, settings):
+    u = make_user(pg)
+    PlatformSettings(pg, lambda: D(1)).set_int("hold_days", 14, effective_from=D(10))
+    early = make_order(pg, u, status="COMPLETED", completed_at=D(5))                  # hoàn tất trước D(10): giữ 7 ngày
+    late = make_order(pg, u, status="COMPLETED", completed_at=D(12))                  # sau D(10): giữ 14 ngày
+    wallet_svc(settings, pg, D(2)).settle()                                           # accrual only (chưa tới hạn)
+    got = by_id(wallet_svc(settings, pg, D(2)).my_orders(u))
+    assert got[early].expected_release_at == D(12) and got[late].expected_release_at == D(26)
+    assert got[early].refund_state == got[late].refund_state == "pending"
+
+
+def test_no_expected_release_for_an_order_returned_but_not_yet_settled(pg, settings):
+    u = make_user(pg)
+    oid = make_order(pg, u, status="COMPLETED", completed_at=D(1))
+    wallet_svc(settings, pg, D(2)).settle()                                           # accrual, chưa tới hạn release
+    assert wallet_svc(settings, pg, D(2)).my_orders(u)[0].expected_release_at == D(8)
+    set_order(pg, oid, status="RETURNED")                                             # Shopee báo trả hàng, worker chưa chốt ví
+    (o,) = wallet_svc(settings, pg, D(3)).my_orders(u)
+    assert o.status == "RETURNED" and o.expected_release_at is None                   # không hứa "dự kiến vào ví" cho đơn đã trả
+
+
+def test_returned_after_release_shows_reversed_zero(pg, settings):
+    u = make_user(pg)
+    oid = make_order(pg, u, status="COMPLETED", completed_at=D(1))
+    wallet_svc(settings, pg, D(9)).settle()
+    set_order(pg, oid, status="RETURNED")
+    wallet_svc(settings, pg, D(10)).settle()
+    (o,) = wallet_svc(settings, pg, D(10)).my_orders(u)
+    assert (o.status, o.refund_state, o.refund_vnd, o.expected_release_at) == ("RETURNED", "reversed", 0, None)
+
+
+def test_orders_api_only_mine_masked_ref_newest_first_and_requires_login(api, pg, settings):
+    a, ha = login_new_user(api)
+    b, hb = login_new_user(api)
+    first = make_order(pg, a, status="COMPLETED", completed_at=D(1))
+    second = make_order(pg, a)
+    set_order(pg, first, purchase_time=D(1))
+    set_order(pg, second, purchase_time=D(3))
+    with pg.begin() as c:
+        c.execute(text("INSERT INTO shopee_orders(order_sn, status, source_type, commission_micro) VALUES ('ITEST-W-orphan2','PENDING','unknown',1)"))
+        sn = c.execute(text("SELECT order_sn FROM shopee_orders WHERE id = :i"), {"i": first}).scalar_one()
+    wallet_svc(settings, pg, D(2)).settle()
+    mine = api.get("/api/v1/me/orders", headers=ha)
+    assert mine.status_code == 200
+    rows = mine.json()
+    assert [r["id"] for r in rows] == [second, first]                                  # mới nhất trước
+    assert set(rows[0]) == {"id", "order_ref", "status", "product_name", "purchased_at", "refund_vnd", "refund_state", "expected_release_at"}
+    assert rows[1]["order_ref"] == sn[-4:] and sn not in mine.text and "ITEST-W-orphan2" not in mine.text
+    assert rows[1]["expected_release_at"] == "2100-01-08T00:00:00Z" and rows[1]["refund_vnd"] == 24_225
+    assert api.get("/api/v1/me/orders", headers=hb).json() == []                       # không thấy đơn của người khác hay đơn mồ côi
+    assert len(api.get("/api/v1/me/orders", params={"limit": 1}, headers=ha).json()) == 1
+    assert [r["id"] for r in api.get("/api/v1/me/orders", params={"limit": 1, "offset": 1}, headers=ha).json()] == [first]
+    assert api.get("/api/v1/me/orders", params={"limit": 0}, headers=ha).status_code == 422
+    assert api.get("/api/v1/me/orders").status_code == 401
