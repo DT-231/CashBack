@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, Query, Request
 
 from app.core.money import micro_to_vnd
 from app.modules.adminstats import repository
+from app.modules.adminstats.health import build_health
 from app.modules.auth.api import require_admin
 from app.modules.auth.schemas import UserOut
 
@@ -41,3 +42,9 @@ def orders(request: Request, status: str | None = Query(None, pattern=_STATUSES)
     with request.app.state.get_engine().connect() as conn:
         rows = repository.orders(conn, status, source, limit, offset)
     return [{**r, "commission_vnd": micro_to_vnd(r["commission_micro"])} for r in _iso(rows)]
+
+
+@router.get("/health")
+def health(request: Request, _: UserOut = Depends(require_admin)):
+    st = request.app.state
+    return build_health(st.settings, st.get_engine())

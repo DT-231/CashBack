@@ -77,6 +77,7 @@ POST /api/v1/agent/links  {"shop_id":1020310358,"item_id":24088489429,"post_key"
 | GET | `/admin/fraud-flags` | staff+ | |
 | POST/DELETE | `/admin/agent-keys` | admin | Cấp/thu hồi key (hiện key đúng 1 lần) |
 | GET | `/admin/audit-logs` | admin | |
+| GET | `/admin/health` | **admin** (+TOTP) | `{overall, db, sync, shopee_session, backup, warnings}`; mỗi thành phần có `status` ∈ ok/warn/down/unknown/not_configured. `backup` đọc tuổi tệp `backup-*.dump.enc` mới nhất trong `BACKUP_DIR` (thiếu cấu hình thì `overall` ít nhất warn). Không lộ đường dẫn/DSN/bí mật |
 
 ## Tool API hiện có (v1.2) — chuyển đổi
 
