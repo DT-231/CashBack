@@ -13,7 +13,7 @@ Nhánh `refactor/restructure`, 17 commit trên `main`. Baseline: `01-audit.md` �
 | Module Python ở thư mục gốc | 10 | 0 (mọi thứ trong `backend/`) |
 | Nơi gọi Shopee | 5 (2 thư viện HTTP, 3 UA) | **1** (`integrations/shopee`) |
 | Dòng đọc `os.environ` | 47 ở 11 file | **0** ngoài `core/config.py` |
-| Hàm > 50 dòng (code ứng dụng) | 4 | 2 (`convert` 78, `build_summary` 58) |
+| Hàm > 50 dòng (code ứng dụng) | 5 | 2 (`convert` 78, `build_summary` 58) |
 | Nguồn lưu dữ liệu | SQLite + Postgres (lệch) | Postgres |
 | Index DB (ngoài PK/UNIQUE) | 3 | 12 (+9, `0002`) |
 | Luật kiến trúc | trong tài liệu | **ép bằng test** (`test_architecture.py`, 5 luật) |
