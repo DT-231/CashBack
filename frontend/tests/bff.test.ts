@@ -230,3 +230,63 @@ describe("logout", () => {
     expect(calls).toHaveLength(0);
   });
 });
+
+describe("T-017: IP thật của khách gửi sang backend", () => {
+  const SECRET = "bff-secret-0123456789abcdef";
+  const reqWith = (method: string, path: string, extra: Record<string, string>, cookie?: string) => {
+    const headers: Record<string, string> = { ...extra };
+    if (cookie) headers.cookie = cookie;
+    if (method !== "GET") { headers["x-csrf"] = "1"; headers.origin = ORIGIN; headers["content-type"] = "application/json"; }
+    return new Request(`${ORIGIN}${path}`, { method, headers, body: method === "GET" ? undefined : "{}" });
+  };
+  const okTokens = () => ({ json: TOK(1) });
+
+  it("có secret + CF-Connecting-IP hợp lệ: gửi X-Visitor-IP và X-BFF-Secret (đăng nhập)", async () => {
+    vi.stubEnv("BFF_SHARED_SECRET", SECRET);
+    const { f, calls } = fakeApi(okTokens);
+    await handleAuth(reqWith("POST", "/bff/auth/login", { "cf-connecting-ip": "198.51.100.7" }), "login", f);
+    expect(calls[0].headers["x-visitor-ip"]).toBe("198.51.100.7");
+    expect(calls[0].headers["x-bff-secret"]).toBe(SECRET);
+  });
+  it("gửi cả khi gọi qua proxy và khi tự làm mới token", async () => {
+    vi.stubEnv("BFF_SHARED_SECRET", SECRET);
+    const { f, calls } = fakeApi((c) => (c.url.endsWith("auth/refresh") ? okTokens() : { json: { ok: 1 } }));
+    await handleProxy(reqWith("GET", "/bff/api/me/links", { "cf-connecting-ip": "2001:db8::1" }, refreshOnly), ["me", "links"], f);
+    expect(calls.length).toBe(2);
+    for (const c of calls) { expect(c.headers["x-visitor-ip"]).toBe("2001:db8::1"); expect(c.headers["x-bff-secret"]).toBe(SECRET); }
+  });
+  it("không có secret thì không gửi gì (backend dùng IP kết nối)", async () => {
+    const { f, calls } = fakeApi(okTokens);
+    await handleAuth(reqWith("POST", "/bff/auth/login", { "cf-connecting-ip": "198.51.100.7" }), "login", f);
+    expect(calls[0].headers["x-visitor-ip"]).toBeUndefined();
+    expect(calls[0].headers["x-bff-secret"]).toBeUndefined();
+  });
+  it("IP thiếu hoặc sai định dạng thì không gửi", async () => {
+    vi.stubEnv("BFF_SHARED_SECRET", SECRET);
+    for (const ip of [undefined, "not-an-ip", "1.2.3.4, 5.6.7.8", "999.1.1.1", ""]) {
+      const { f, calls } = fakeApi(okTokens);
+      await handleAuth(reqWith("POST", "/bff/auth/login", ip === undefined ? {} : { "cf-connecting-ip": ip }), "login", f);
+      expect(calls[0].headers["x-visitor-ip"], String(ip)).toBeUndefined();
+      expect(calls[0].headers["x-bff-secret"], String(ip)).toBeUndefined();
+    }
+  });
+  it("header X-Visitor-IP / X-BFF-Secret do khách tự gửi tới BFF không bao giờ được chuyển tiếp", async () => {
+    vi.stubEnv("BFF_SHARED_SECRET", SECRET);
+    const forged = { "x-visitor-ip": "6.6.6.6", "x-bff-secret": "forged", "cf-connecting-ip": "198.51.100.7" };
+    const { f, calls } = fakeApi(okTokens);
+    await handleAuth(reqWith("POST", "/bff/auth/login", forged), "login", f);
+    expect(calls[0].headers["x-visitor-ip"]).toBe("198.51.100.7");
+    expect(calls[0].headers["x-bff-secret"]).toBe(SECRET);
+    vi.unstubAllEnvs(); vi.stubEnv("API_BASE_URL", "http://api.test");   // không secret: header giả cũng không lọt
+    const second = fakeApi(okTokens);
+    await handleAuth(reqWith("POST", "/bff/auth/login", forged), "login", second.f);
+    expect(second.calls[0].headers["x-visitor-ip"]).toBeUndefined();
+    expect(second.calls[0].headers["x-bff-secret"]).toBeUndefined();
+  });
+  it("secret không bao giờ xuất hiện trong phản hồi trả cho trình duyệt", async () => {
+    vi.stubEnv("BFF_SHARED_SECRET", SECRET);
+    const { f } = fakeApi(okTokens);
+    const r = await handleAuth(reqWith("POST", "/bff/auth/login", { "cf-connecting-ip": "198.51.100.7" }), "login", f);
+    expect(JSON.stringify([...r.headers.entries()]) + (await r.text())).not.toContain(SECRET);
+  });
+});
