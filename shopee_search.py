@@ -4,7 +4,6 @@
 Nó cần cookie phiên + thường cần IP sạch, và có thể đổi bất kỳ lúc nào.
 Mọi chỗ dễ vỡ đều gom về đây, phần còn lại của hệ không phụ thuộc.
 """
-import json
 import os
 import random
 import time

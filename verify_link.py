@@ -14,7 +14,6 @@ Nó in ra: link sinh ra, HTTP status, Location sau 301, và 3 dấu hiệu quy�
 Thiếu uls_trackid = link không được tracking, dù vẫn mở ra sản phẩm.
 """
 import argparse
-import os
 import sys
 from urllib.error import HTTPError
 from urllib.parse import urlparse, parse_qs

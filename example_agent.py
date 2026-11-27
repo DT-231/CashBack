@@ -7,7 +7,6 @@ Rồi:                python3 example_agent.py "tìm cho tao 3 nồi chiên dư�
 Phần quan trọng không phải LLM — mà là mapping tool_call -> HTTP request.
 Copy đúng 3 nhánh dưới đây vào agent của bạn là xong.
 """
-import json
 import os
 import sys
 
