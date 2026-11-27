@@ -62,7 +62,7 @@ EOF
 # 3) Chạy Codex không tương tác, cho phép ghi trong worktree
 echo "▶ Codex đang làm $ID trong $WT ..."
 set +e
-( cd "$WT" && codex exec ${CODEX_MODEL:+-m "$CODEX_MODEL"} ${CODEX_EFFORT:+-c "model_reasoning_effort=\"$CODEX_EFFORT\""} --sandbox workspace-write -o "$RUNS/$ID.md" "$PROMPT" ) >"$RUNS/$ID.log" 2>&1
+( cd "$WT" && codex exec ${CODEX_MODEL:+-m "$CODEX_MODEL"} ${CODEX_EFFORT:+-c "model_reasoning_effort=\"$CODEX_EFFORT\""} --sandbox workspace-write -o "$RUNS/$ID.md" "$PROMPT" ) </dev/null >"$RUNS/$ID.log" 2>&1
 CODE=$?
 set -e
 
