@@ -58,6 +58,12 @@ class Settings(BaseSettings):
     cors_origins: str = ""                 # danh sách origin, ngăn bằng dấu phẩy; rỗng = tắt CORS
     agent_api_key: SecretStr = SecretStr("")  # khóa khởi tạo cho Tool API; thêm khóa khác qua bảng agent_keys
 
+    # --- đăng nhập (module auth) ---
+    jwt_secret: SecretStr = SecretStr("")    # >= 32 ký tự; rỗng thì endpoint auth trả 503
+    access_ttl_min: int = 15
+    refresh_ttl_days: int = 30
+    require_email_verify: bool = False       # bật khi đã có gửi email (T-011)
+
     # --- DB ---
     database_url: str = ""
 
