@@ -104,4 +104,16 @@ describe("api-client: rút tiền, admin, TOTP", () => {
     expect(JSON.parse(String(call(f, 6)[1].body))).toEqual({ cookie: "a=b" });
     expect((call(f, 2)[1].headers as Record<string, string>)["x-csrf"]).toBe("1");
   });
+
+  it("sức khỏe, đối soát và khôi phục tài khoản: đường dẫn và body", async () => {
+    const f = vi.fn(async () => json({}));
+    vi.stubGlobal("fetch", f);
+    await api.adminHealth(); await api.adminReconciliation("2026-11"); await api.adminLedgerIntegrity();
+    await api.forgotPassword("a@b.c"); await api.resetPassword("tok", "pw"); await api.verifyEmail("tok2"); await api.resendVerification("a@b.c");
+    expect(sig(f)).toEqual(["GET /bff/api/admin/health", "GET /bff/api/admin/reconciliation?month=2026-11", "GET /bff/api/admin/ledger-integrity",
+      "POST /bff/auth/forgot", "POST /bff/auth/reset", "POST /bff/auth/verify-email", "POST /bff/auth/resend-verification"]);
+    expect(JSON.parse(String(call(f, 4)[1].body))).toEqual({ token: "tok", password: "pw" });
+    expect(JSON.parse(String(call(f, 5)[1].body))).toEqual({ token: "tok2" });
+    expect((call(f, 3)[1].headers as Record<string, string>)["x-csrf"]).toBe("1");
+  });
 });
