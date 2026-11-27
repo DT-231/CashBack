@@ -1,14 +1,13 @@
 """Nghiệp vụ /go/{code}: tra link, ghi click, dựng link affiliate có sub_id ký. KHÔNG biết HTTP, KHÔNG có SQL."""
 from __future__ import annotations
 
-import hashlib
-import hmac
 import logging
 import re
 
 from sqlalchemy import Engine
 
 from app.core import subid
+from app.core.clientip import keyed_hash
 from app.core.config import ConfigError, Settings
 from app.modules.clicks import repository
 from app.modules.clicks.errors import LinkNotFound
@@ -21,11 +20,7 @@ _BOT = re.compile(r"bot|crawl|spider|preview|facebookexternalhit|slurp", re.I)
 
 
 def hash_value(settings: Settings, value: str | None) -> str | None:
-    """HMAC-SHA256(IP_SALT, value), 16 ký tự hex đầu. Không có IP_SALT hoặc value rỗng thì không lưu gì."""
-    key = settings.ip_salt.get_secret_value()
-    if not key or not value:
-        return None
-    return hmac.new(key.encode(), value.encode(), hashlib.sha256).hexdigest()[:16]
+    return keyed_hash(settings, value)
 
 
 class ClickService:
