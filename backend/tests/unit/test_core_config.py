@@ -66,3 +66,12 @@ def test_serving_outside_localhost_requires_key():
         Settings(host="0.0.0.0").validate_for_serving()
     Settings(host="0.0.0.0", agent_api_key="k" * 20, ip_salt="i" * 20).validate_for_serving()
     assert Settings(host="0.0.0.0").auth_required and Settings(agent_api_key="x").auth_required
+
+
+def test_trust_proxy_headers_refused_when_not_loopback():
+    with pytest.raises(ConfigError, match="TRUST_PROXY_HEADERS"):
+        Settings(host="0.0.0.0", trust_proxy_headers=True, agent_api_key="k" * 20,
+                 ip_salt="i" * 20).validate_for_serving()
+    Settings(host="127.0.0.1", trust_proxy_headers=True).validate_for_serving()
+    Settings(host="0.0.0.0", trust_proxy_headers=False, agent_api_key="k" * 20,
+             ip_salt="i" * 20).validate_for_serving()
