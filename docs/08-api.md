@@ -76,7 +76,8 @@ POST /api/v1/agent/links  {"shop_id":1020310358,"item_id":24088489429,"post_key"
 | GET | `/admin/reconciliation?month=YYYY-MM` | admin (+TOTP) | Đơn theo trạng thái (hoa hồng micro và VND), bút toán ví theo trạng thái đơn, `completed.{shopee_commission_vnd, user_share_accrued_vnd, platform_margin_vnd}`, chi trả trong tháng, khoản lỗ admin (`adjust`). Tháng nửa mở [đầu, đầu tháng sau) theo UTC |
 | GET | `/admin/ledger-integrity` | admin (+TOTP) | So `wallets` với số suy ra từ `wallet_entries`; `mismatches` > 0 là sự cố: dừng rút tiền, xem `docs/runbooks/wallet.md` |
 | GET/PUT | `/admin/settings` | admin | `user_share_bp, min_withdraw_vnd, hold_days, auto_payout` |
-| GET | `/admin/fraud-flags` | staff+ | |
+| GET | `/admin/fraud-flags?status=` | **admin** (+TOTP) | Cờ gian lận: `shared_ip` (>= 3 chủ link khác nhau có click từ cùng ip_hash trong 7 ngày), `high_cancel_rate` (>= 5 đơn trong 60 ngày và >= 50% hủy/trả), `click_burst` (>= 60 click/giờ từ một ip_hash vào một link). **Chỉ cờ: không tự khóa, giữ hay trừ tiền** |
+| POST | `/admin/fraud-flags/{id}/resolve` | **admin** (+TOTP) | `{status: dismissed\|confirmed, note}`; audit `fraud.resolve`; cờ bị bỏ qua không tạo lại 30 ngày. Khóa user: `PATCH /admin/users/{id}` |
 | POST/DELETE | `/admin/agent-keys` | admin | Cấp/thu hồi key (hiện key đúng 1 lần) |
 | GET | `/admin/audit-logs` | admin | |
 | GET | `/admin/health` | **admin** (+TOTP) | `{overall, db, sync, shopee_session, backup, warnings}`; mỗi thành phần có `status` ∈ ok/warn/down/unknown/not_configured. `backup` đọc tuổi tệp `backup-*.dump.enc` mới nhất trong `BACKUP_DIR` (thiếu cấu hình thì `overall` ít nhất warn). Không lộ đường dẫn/DSN/bí mật |
