@@ -9,7 +9,7 @@ a { color: #075e42; overflow-wrap: anywhere; }
 .auth-panel { width: min(100% - 32px, 440px); margin: 48px auto; }
 form { display: grid; gap: 16px; }
 .field { display: grid; gap: 8px; font-weight: 600; }
-input { width: 100%; min-height: 48px; padding: 10px 12px; border: 1px solid #81958a; border-radius: 6px; font: inherit; }
+input, select { width: 100%; min-height: 48px; padding: 10px 12px; border: 1px solid #81958a; border-radius: 6px; background: white; font: inherit; }
 .button { display: inline-flex; min-height: 44px; align-items: center; justify-content: center; padding: 10px 16px; border: 0; border-radius: 6px; background: #08734f; color: white; font: inherit; font-weight: 700; text-decoration: none; cursor: pointer; }
 .button:hover { background: #075e42; }
 .button:disabled { opacity: .6; cursor: wait; }
@@ -18,6 +18,7 @@ input { width: 100%; min-height: 48px; padding: 10px 12px; border: 1px solid #81
 .topbar { min-height: 64px; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 10px max(16px, calc((100% - 760px) / 2)); background: white; border-bottom: 1px solid #d4e0d9; }
 .topbar a { font-weight: 700; text-decoration: none; }
 .topbar nav { display: flex; flex-wrap: wrap; gap: 16px; }
+.topbar nav a { min-height: 44px; display: inline-flex; align-items: center; }
 .result { margin-top: 20px; padding-top: 12px; border-top: 1px solid #d4e0d9; }
 .result p { overflow-wrap: anywhere; }
 .link-list { list-style: none; padding: 0; margin: 0; }
