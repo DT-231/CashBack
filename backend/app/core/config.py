@@ -107,6 +107,11 @@ class Settings(BaseSettings):
             raise ConfigError("Thiếu biến môi trường: " + ", ".join(missing))
 
     def validate_for_serving(self) -> None:
+        if self.trust_proxy_headers and not self.is_loopback:
+            raise ConfigError(
+                f"TRUST_PROXY_HEADERS=1 nhưng HOST={self.host} lắng nghe ngoài localhost: ai tới được cổng "
+                "cũng giả được CF-Connecting-IP để né rate limit. Đặt HOST=127.0.0.1 (cloudflared/BFF chạy "
+                "cùng máy) hoặc TRUST_PROXY_HEADERS=0")
         if not self.is_loopback and not self.agent_api_key.get_secret_value():
             raise ConfigError(
                 f"HOST={self.host} lắng nghe ngoài localhost nhưng chưa đặt AGENT_API_KEY; "
