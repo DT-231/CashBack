@@ -69,8 +69,32 @@ CODE=$?
 set -e
 
 # 4) Tự commit thay đổi lên branch task (để Claude review bằng git diff)
+# Đường dẫn CẤM: không bao giờ tự commit. `.env.example` là ngoại lệ hợp lệ (không chứa giá trị thật).
+forbidden_paths() {
+  local f base
+  while IFS= read -r f; do
+    base="${f##*/}"
+    if { [[ "$base" == .env* && "$base" != ".env.example" ]]; } \
+       || [[ "$base" =~ \.har($|\.) ]] \
+       || [[ "/$f/" == */node_modules/* ]] \
+       || [[ "$base" == *.key || "$base" == *.pem ]] \
+       || [[ "$(printf '%s' "$f" | tr '[:upper:]' '[:lower:]')" == *secret* ]] \
+       || [[ "/$f" == */raw/* || "/$f" == */live-test-data/* ]]; then
+      printf '%s\n' "$f"
+    fi
+  done
+}
+
 if [[ -n "$(git -C "$WT" status --porcelain)" ]]; then
   git -C "$WT" add -A
+  BAD="$(git -C "$WT" diff --cached --name-only | forbidden_paths)"
+  if [[ -n "$BAD" ]]; then
+    git -C "$WT" reset -q          # bỏ staging, KHÔNG commit; file vẫn còn trong worktree để xem
+    echo "✖ DỪNG: Codex tạo/sửa đường dẫn bị cấm, không commit gì:" >&2
+    while IFS= read -r bad_path; do echo "    $bad_path" >&2; done <<< "$BAD"
+    echo "  (cấm: .env*, *.har*, node_modules, *.key, *.pem, *secret*, raw/, live-test-data/; xem $WT)" >&2
+    exit 3
+  fi
   git -C "$WT" commit -q -m "task($ID): Codex implementation" -m "Báo cáo: .codex-runs/$ID.md"
   echo "✔ Đã commit lên $BR"
 else
