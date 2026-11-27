@@ -30,5 +30,5 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   if (!ready) return <main className="page"><p role="status">Đang tải tài khoản…</p></main>;
   if (error) return <main className="page"><p role="alert">{error}</p></main>;
   if (!allowed) return <main className="page"><p role="alert">Bạn không có quyền truy cập</p></main>;
-  return <><header className="topbar"><a href="/admin/withdrawals">CashBack</a><nav aria-label="Khu vực quản trị"><a href="/admin">Tổng quan</a><a href="/admin/users">Người dùng</a><a href="/admin/orders">Đơn hàng</a><a href="/admin/withdrawals">Rút tiền</a><a href="/admin/mfa">Đăng nhập hai lớp</a></nav><Button type="button" onClick={logout}>Đăng xuất</Button></header>{children}</>;
+  return <><header className="topbar"><a href="/admin/withdrawals">CashBack</a><nav aria-label="Khu vực quản trị"><a href="/admin">Tổng quan</a><a href="/admin/users">Người dùng</a><a href="/admin/orders">Đơn hàng</a><a href="/admin/withdrawals">Rút tiền</a><a href="/admin/orphans">Đơn mồ côi</a><a href="/admin/session">Cookie Shopee</a><a href="/admin/mfa">Đăng nhập hai lớp</a></nav><Button type="button" onClick={logout}>Đăng xuất</Button></header>{children}</>;
 }
