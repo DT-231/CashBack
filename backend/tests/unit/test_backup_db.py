@@ -68,6 +68,7 @@ def test_wrong_key_flip_truncate_append_and_reorder_are_all_detected(tmp_path):
     fails(swapped)                                                                      # đảo khối
     fails(b"XXXX" + raw[4:])                                                            # sai magic
     fails(raw[:5])                                                                      # header cụt
+    fails(raw[:12])                                                                     # chỉ có header, không có khối nào
     fails(raw[:12] + b"\x00\x00")                                                       # độ dài khối cụt
 
 
@@ -145,3 +146,12 @@ def test_cli_requires_a_strong_key_and_never_echoes_it(tmp_path, monkeypatch, ca
     monkeypatch.setenv("BACKUP_ENC_KEY", KEY_B64)
     _, dst = enc(tmp_path, b"abc")
     assert bk.main(["verify", str(dst)]) == 0 and "sha256=" in capsys.readouterr().out
+
+
+def test_backup_removes_the_file_when_the_written_copy_does_not_decrypt(tmp_path, monkeypatch):
+    monkeypatch.setenv("PG_DUMP", str(make_stub(tmp_path, "pgd", 'printf "data"\n')))
+    monkeypatch.setattr(bk, "encrypt_file", lambda src, dst, key: dst.write_bytes(b"garbage") and "0" * 64)   # ghi hỏng
+    out = tmp_path / "bk"
+    with pytest.raises(bk.BackupError, match="không giải mã đúng"):
+        bk.backup(DSN, out, KEY, keep=3)
+    assert list(out.glob("backup-*")) == []

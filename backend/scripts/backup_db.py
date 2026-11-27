@@ -70,8 +70,6 @@ def decrypt_file(src: Path, dst: Path | None, key: bytes) -> str:
                 raw = fi.read(4)
                 if not raw:
                     break
-                if seen_last:
-                    raise BackupError("có dữ liệu sau khối cuối")
                 if len(raw) != 4:
                     raise BackupError("tệp bị cắt cụt")
                 (n,) = struct.unpack(">I", raw)
