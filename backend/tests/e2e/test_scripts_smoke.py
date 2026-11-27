@@ -42,3 +42,8 @@ def test_feed_import_dry_run():
 def test_example_agent_prints_usage_without_args():
     r = run("example_agent.py")
     assert r.returncode == 0 and "AGENT_API_KEY" in r.stdout
+
+
+def test_issue_agent_key_prints_usage_without_name():
+    r = run("issue_agent_key.py")
+    assert r.returncode == 2 and "muse-fanpage-1" in r.stdout
