@@ -12,7 +12,7 @@ Nguồn dữ liệu máy đọc: `backlog/issues.csv` (cùng nội dung).
 - [ ] **Đơn mua thử thật khớp sub_id**: làm theo `docs/runbooks/live-attribution-test.md`; `utm_content` có chữ ký còn nguyên và giải mã `ok`
 - [ ] **PO đã xác nhận với Shopee (bằng văn bản) về mô hình cashback** (rủi ro R-02): chia lại hoa hồng cho người dùng có được phép không, cần đăng ký kênh nào
 - [ ] **Trang Điều khoản và Chính sách quyền riêng tư** (T-064): bản nháp, **cần tư vấn pháp lý** trước khi dùng thật (R-06, R-17)
-- [ ] **`audit_logs` xong** (phần còn thiếu của T-013): ghi ai/hành động/đối tượng/thời điểm/IP băm cho thao tác admin và tiền
+- [ ] **`audit_logs` xong** (phần còn thiếu của T-013; đã làm ở nhánh `task/audit-logs`, chờ PO duyệt merge): ghi ai/hành động/đối tượng/thời điểm/IP băm cho thao tác admin và tiền
 
 Ghi chú: các mục trên là điều kiện **mở cho người ngoài**. Dùng nội bộ (chỉ PO và người quen, không quảng bá) vẫn có thể thử trên máy mình bằng tunnel nhanh.
 
