@@ -4,7 +4,7 @@ from __future__ import annotations
 from sqlalchemy import Engine
 
 from app.core import subid
-from app.core.config import Settings
+from app.core.config import ConfigError, Settings
 from app.core.errors import Conflict
 from app.modules.agent_auth.service import AgentIdentity
 from app.modules.ai_posts import repository
@@ -24,6 +24,8 @@ class AiPostService:
     def create_link(self, who: AgentIdentity, req: LinkRequest) -> LinkResponse:
         self.s.require("shopee_aff_id", "subid_secret")
         secret = self.s.subid_secret.get_secret_value()
+        if len(secret.encode()) < 16:
+            raise ConfigError("SUBID_SECRET phải có ít nhất 16 byte")
         with self.engine.begin() as conn:
             product_id = repository.upsert_product(conn, req.shop_id, req.item_id)
             post_id = repository.insert_post(conn, req.post_key, product_id, who.key_id, req.page_code, req.category)

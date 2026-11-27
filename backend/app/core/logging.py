@@ -14,6 +14,7 @@ _request_id: contextvars.ContextVar[str] = contextvars.ContextVar("request_id", 
 SENSITIVE_KEYS = {"cookie", "authorization", "token", "password", "secret", "api_key", "account_no", "set-cookie"}
 _PATTERN = re.compile(r"(?i)\b(cookie|authorization|token|password|secret|api_key)\b(\s*[=:]\s*)([^\s,;&\"']+)")
 REDACTED = "***"
+_RID_OK = re.compile(r"[A-Za-z0-9._-]{1,64}")
 
 
 def get_request_id() -> str:
@@ -21,7 +22,7 @@ def get_request_id() -> str:
 
 
 def set_request_id(value: str | None = None) -> str:
-    rid = value or uuid.uuid4().hex[:12]
+    rid = value if value and _RID_OK.fullmatch(value) else uuid.uuid4().hex[:12]   # không tin giá trị từ client
     _request_id.set(rid)
     return rid
 

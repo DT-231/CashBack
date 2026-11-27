@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from fastapi import Request
 
-from app.core.errors import Unauthorized
+from sqlalchemy.exc import SQLAlchemyError
+
+from app.core.errors import AppError, Unauthorized
 from app.modules.agent_auth.service import AgentAuth, AgentIdentity
 
 
@@ -16,7 +18,10 @@ def require_agent(request: Request) -> AgentIdentity:
     st = request.app.state
     # engine được tạo lười: phải gọi get_engine() thì khóa trong bảng agent_keys mới được kiểm tra
     engine = st.get_engine() if st.settings.database_url else None
-    ident = AgentAuth(st.settings, engine).authenticate(bearer(request))
+    try:
+        ident = AgentAuth(st.settings, engine).authenticate(bearer(request))
+    except SQLAlchemyError as e:
+        raise AppError("không kiểm tra được API key (DB không sẵn sàng)", code="auth_unavailable", status=503) from e
     if ident is None:
         raise Unauthorized("thiếu hoặc sai API key")
     return ident

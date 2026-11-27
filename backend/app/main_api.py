@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import threading
 import time
 
 from fastapi import FastAPI, Request
@@ -30,10 +31,13 @@ def create_app(settings: Settings | None = None, shopee=None, engine: Engine | N
     app.state.search = ProductSearch(settings, app.state.shopee)
     app.state.engine = engine
 
+    engine_lock = threading.Lock()
+
     def get_engine() -> Engine:
-        if app.state.engine is None:
-            app.state.engine = make_engine(settings)   # lười: chỉ cần khi gọi endpoint dùng DB
-        return app.state.engine
+        with engine_lock:
+            if app.state.engine is None:
+                app.state.engine = make_engine(settings)   # lười: chỉ cần khi gọi endpoint dùng DB
+            return app.state.engine
     app.state.get_engine = get_engine
 
     origins = [o.strip() for o in settings.cors_origins.split(",") if o.strip()]

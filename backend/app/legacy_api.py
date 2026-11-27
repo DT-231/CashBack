@@ -68,7 +68,10 @@ async def link(request: Request):
             data = {}
     except ValueError:
         data = {}
-    url = (data.get("url") or "").strip()
+    url = data.get("url") or ""
+    if not isinstance(url, str):
+        return _err("url phải là chuỗi", 400)
+    url = url.strip()
     sub = str(data.get("sub") or data.get("sub_id") or "api")
     item_id, shop_id = data.get("item_id"), data.get("shop_id")
     parsed = parse_product_url(url) if url else None
@@ -80,6 +83,8 @@ async def link(request: Request):
         item_id, shop_id = int(item_id), int(shop_id)
     except (TypeError, ValueError):
         return _err("item_id và shop_id phải là số nguyên", 400)
+    if item_id <= 0 or shop_id <= 0:
+        return _err("item_id và shop_id phải dương", 400)
     try:
         out = link_for_item(item_id, shop_id, sub, LinkConfig.from_settings(request.app.state.settings))
     except LinkError as e:

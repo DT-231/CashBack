@@ -6,7 +6,7 @@ Nhánh `refactor/restructure`, 17 commit trên `main`. Baseline: `01-audit.md` �
 
 | Chỉ số | Trước (`4fb184e`) | Sau |
 |---|---|---|
-| Test (gồm DB, migration) | 34 | **156** |
+| Test (gồm DB, migration) | 34 | **166** |
 | Thời gian chạy test | ~1,3 s (không gồm DB) | ~0,6 s không DB · ~3 s gồm Postgres + migration up/down |
 | Coverage | 41 % (service cũ + codec) | **92 %** `backend/app` (1.122 dòng) |
 | Lint (ruff E9,F) | 3 lỗi | 0 |
@@ -36,6 +36,8 @@ Thời gian phản hồi `MOCK=1`, in-process, p50 (so cùng cách đo ở audit
 | 19–22 test thiếu | Sửa trừ ví/đối soát/sync (chưa có code) |
 | 23–28 hiệu năng | Sửa: không ghi từng item, index, cache TTL (chỉ lưu thành công), một cửa sổ thời gian/snapshot, không `sleep` trong luồng search dư |
 
+Rà soát bằng `code-review` (medium) cho 10 điểm; 7 điểm đã sửa kèm test (`test_review_fixes.py`): feed hỏng/`.jsonl` làm 500, cache không giới hạn, `SUBID_SECRET` ngắn → 503, lỗi cũ còn sót khi retry thành công, DB sập lúc xác thực → 503 (+ khóa tạo engine), kiểu/dấu của `url`/`item_id`, `LINK_TEMPLATE` hỏng, `X-Request-ID` không kiểm. 3 điểm còn lại ghi vào nợ.
+
 Đã thêm một lỗi tự phát hiện và sửa trong lúc rà soát: khóa trong `agent_keys` không bao giờ xác thực được vì engine tạo lười (`fa0d808`).
 
 ## Nợ kỹ thuật còn lại (đề xuất xử lý)
@@ -52,4 +54,6 @@ Thời gian phản hồi `MOCK=1`, in-process, p50 (so cùng cách đo ở audit
 | `integrations/shopee/browser.py` coverage 54 % (Playwright) | Chấp nhận; test bằng DOM mẫu nếu dùng nhiều |
 | CI (`.github/workflows/ci.yml`) chưa chạy trên GitHub | Đẩy nhánh và xem lần chạy đầu |
 | Refresh token / OpenAPI → `packages/shared-types` / `frontend/` | Khi làm T-010 và web (chuẩn bị mobile) |
+| `parse_vn_number`: `0.080`/`8.500` (3 chữ số thập phân) bị đọc là số nghìn (80/8500); `feed_import --min-rate` so giá trị thô còn `feed.py` đổi rate < 1 thành %, hai nơi lệch đơn vị (hành vi cũ, rà soát code review) | Cần feed thật để chốt định dạng; sau đó thống nhất một hàm đọc rate |
+| `reports`: `capped_commission` = 0 hợp lệ vẫn rơi về `gross_commission` (hành vi cũ) | Xác nhận ý nghĩa trường bằng HAR thật rồi đổi sang kiểm `is None` |
 | `AgentAuth.issue` chưa có endpoint admin (có script `issue_agent_key.py`) | T-050 |

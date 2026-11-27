@@ -127,7 +127,7 @@ class ShopeeClient:
                         items.append(self._normalize_item(basic))
                 if not items:
                     last_err = "Không parse được item nào (Shopee đổi schema hoặc trả trang login)"
-                return {"ok": bool(items), "items": items, "error": last_err, "source": "shopee"}
+                return {"ok": bool(items), "items": items, "error": None if items else last_err, "source": "shopee"}
             except (requests.RequestException, ValueError, AttributeError) as e:
                 last_err = f"{type(e).__name__}: {e}"
                 self._sleep(1.5 + attempt + random.random())

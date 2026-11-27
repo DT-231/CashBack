@@ -99,7 +99,10 @@ def to_record(row: dict) -> FeedRow | None:
 
 
 def read_rows(path: Path) -> list[FeedRow]:
-    if path.suffix.lower() in (".json", ".jsonl"):
+    if path.suffix.lower() == ".jsonl":
+        raw = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+        return [r for r in (to_record(x) for x in raw) if r]
+    if path.suffix.lower() == ".json":
         raw = json.loads(path.read_text(encoding="utf-8"))
         if isinstance(raw, dict):
             raw = raw.get("items") or raw.get("data") or []
@@ -123,7 +126,11 @@ class FeedStore:
             return []
         key = (str(p), p.stat().st_mtime)
         if self._key != key:
-            self._rows, self._key = read_rows(p), key
+            try:
+                rows = read_rows(p)
+            except (ValueError, OSError, csv.Error, AttributeError):   # file hỏng/ghi dở: coi như không đọc được
+                rows = []
+            self._rows, self._key = rows, key
         return self._rows
 
 

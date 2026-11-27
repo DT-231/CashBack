@@ -82,6 +82,13 @@ def _append_utm(url, params):
 
 def make_link(url, sub_id, cfg: LinkConfig, campaign=None, template=None) -> str:
     """Sinh link affiliate từ link sản phẩm."""
+    try:
+        return _make_link(url, sub_id, cfg, campaign, template)
+    except (KeyError, IndexError) as e:   # LINK_TEMPLATE có dấu ngoặc/biến lạ
+        raise LinkError(f"LINK_TEMPLATE không hợp lệ: {e!r}") from e
+
+
+def _make_link(url, sub_id, cfg, campaign, template) -> str:
     aid = cfg.aff_id.strip()
     if not aid:
         raise LinkError("Thiếu SHOPEE_AFF_ID trong .env")

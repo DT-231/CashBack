@@ -8,8 +8,8 @@ from typing import Any
 
 
 class TTLCache:
-    def __init__(self, ttl: float, clock: Callable[[], float] = time.monotonic):
-        self.ttl, self._clock = ttl, clock
+    def __init__(self, ttl: float, clock: Callable[[], float] = time.monotonic, max_entries: int = 512):
+        self.ttl, self._clock, self.max_entries = ttl, clock, max_entries
         self._data: dict[Any, tuple[float, Any]] = {}
         self._lock = threading.Lock()
 
@@ -25,7 +25,12 @@ class TTLCache:
         value = factory()
         if cacheable(value):
             with self._lock:
-                self._data[key] = (self._clock() + self.ttl, value)
+                now = self._clock()
+                if len(self._data) >= self.max_entries:   # bỏ mục hết hạn, rồi mục cũ nhất nếu vẫn đầy
+                    self._data = {k: v for k, v in self._data.items() if v[0] > now}
+                    while len(self._data) >= self.max_entries:
+                        self._data.pop(next(iter(self._data)))
+                self._data[key] = (now + self.ttl, value)
         return value
 
     def clear(self) -> None:
