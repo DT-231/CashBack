@@ -31,7 +31,8 @@ class BankAccountOut(BaseModel):
     bank_code: str
     account_name: str
     last4: str
-    usable_from: datetime
+    usable_from: datetime            # mốc dùng được để rút (hết thời gian chờ đổi tài khoản)
+    usable_now: bool                 # backend tính theo đồng hồ server; UI chỉ hiển thị, không so sánh ngày
     created_at: datetime
 
 
@@ -54,6 +55,7 @@ class WithdrawalOut(BaseModel):
 
 
 class AdminWithdrawalOut(WithdrawalOut):
+    transfer_note: str = ""          # nội dung chuyển khoản để đối soát sao kê (chứa mã yêu cầu)
     user_id: int
     approved_by: int | None = None
     approved_at: datetime | None = None
@@ -76,3 +78,11 @@ class PayoutAccountOut(BaseModel):
     bank_code: str
     account_no: str
     account_name: str
+
+
+class WithdrawalRules(BaseModel):
+    """Quy tắc hiện hành để UI hiển thị (UI không tự suy ra)."""
+    withdrawals_enabled: bool
+    min_withdraw_vnd: int
+    bank_change_cooldown_hours: int
+    max_bank_accounts: int

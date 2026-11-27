@@ -1,5 +1,5 @@
 /** /bff/api/<path>: chuyển tiếp có danh sách cho phép, gắn Bearer từ cookie, tự làm mới token tối đa một lần. */
-import { isAllowed } from "./allowlist";
+import { IDEMPOTENCY_KEY, isAllowed, requiresIdempotencyKey } from "./allowlist";
 import { checkCsrf } from "./csrf";
 import { clearCookies, readTokens, sessionCookies } from "./cookies";
 import { errorResponse } from "./errors";
@@ -13,6 +13,11 @@ export async function handleProxy(request: Request, segments: string[], f: Fetch
   if (!isAllowed(request.method, segments)) return errorResponse(404, "not_found", "Không tìm thấy");
 
   const visitor = visitorHeaders(request);
+  let idempotencyKey: string | undefined;
+  if (requiresIdempotencyKey(request.method, segments)) {
+    idempotencyKey = request.headers.get("idempotency-key") ?? "";
+    if (!IDEMPOTENCY_KEY.test(idempotencyKey)) return errorResponse(400, "idempotency_key_required", "Thiếu hoặc sai Idempotency-Key");
+  }
   const { access, refresh } = readTokens(request);
   let token = access;
   let setCookies: string[] = [];
@@ -27,12 +32,12 @@ export async function handleProxy(request: Request, segments: string[], f: Fetch
   const body = request.method === "GET" ? undefined : await request.text();
   const rid = request.headers.get("x-request-id") ?? undefined;
   const path = segments.join("/") + new URL(request.url).search;
-  let r = await callApi(f, request.method, path, { token, body, requestId: rid, visitor });
+  let r = await callApi(f, request.method, path, { token, body, requestId: rid, visitor, idempotencyKey });
   if (r.status === 401 && refresh && setCookies.length === 0) {   // access bị từ chối: làm mới đúng MỘT lần rồi thử lại
     const t = await refreshTokens(f, refresh, visitor);
     if (!t) return expired();
     setCookies = sessionCookies(t);
-    r = await callApi(f, request.method, path, { token: t.access_token, body, requestId: rid, visitor });
+    r = await callApi(f, request.method, path, { token: t.access_token, body, requestId: rid, visitor, idempotencyKey });
   }
   return passThrough(r, setCookies);
 }

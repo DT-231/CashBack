@@ -276,6 +276,7 @@ Ghi chú: các mục trên là điều kiện **mở cho người ngoài**. Dùn
   - Given hợp lệ When rút Then available→held trong 1 transaction
 
 ### T-041: Là admin, tôi muốn duyệt và chi trả thủ công bằng VietQR/CSV
+- **Tiến độ (2026-11-28):** backend duyệt/từ chối/chi trả có từ T-040; `prep/T-041` thêm CSV (chống công thức độc, audit từng dòng), `rules`/`usable_now`/`transfer_note`, BFF allowlist; giao diện: T-041a (người dùng) rồi T-041b (admin + TOTP) cho Codex. **VietQR chưa làm** (cần bảng mã BIN ngân hàng; CSV đủ cho MVP).
 - Loại: feature · 8 điểm · Must · Sprint 4 · Owner: claude · Phụ thuộc: T-040, T-012
 - Acceptance criteria:
   - Given yêu cầu When duyệt Then sinh mã VietQR/CSV chuyển hàng loạt
