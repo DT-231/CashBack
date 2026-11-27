@@ -11,7 +11,7 @@ Dự án: web hoàn tiền Shopee (60% hoa hồng cho user) + Tool API cho Muse 
 
 ## Lệnh test (phải pass trước khi báo xong)
 ```
-python3 test_offline.py                       # 16 test service cũ
+make test                                     # pytest backend/tests + 2 bộ unittest cũ (cần `make venv` một lần)
 python3 test_make_link_regression.py          # hồi quy make_link
 PYTHONPATH=packages/core python3 -m unittest discover -s packages/core/tests
 # schema DB: docker compose -f infra/docker-compose.yml up -d db migrate seed, rồi

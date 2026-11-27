@@ -11,9 +11,9 @@ venv:
 	python3 -m venv $(VENV)
 	$(PY) -m pip install -q -e "backend[dev]"
 
-# Bộ test hiện có (service cũ + codec sub_id). Sẽ gom về pytest ở bước 2.
+# pytest: service cũ + hợp đồng. Hai bộ unittest cũ sẽ chuyển vào backend/tests ở bước 4.
 test:
-	$(PY) test_offline.py
+	$(PY) -m pytest backend/tests
 	$(PY) test_make_link_regression.py
 	PYTHONPATH=packages/core $(PY) -m unittest discover -s packages/core/tests
 
@@ -30,5 +30,5 @@ fmt:
 cov:
 	PYTHONPATH=packages/core $(VENV)/bin/coverage run --source=. -m unittest discover -s packages/core/tests
 	$(VENV)/bin/coverage run -a --source=. test_make_link_regression.py
-	$(VENV)/bin/coverage run -a --source=. test_offline.py
-	$(VENV)/bin/coverage report --omit='test_*,*/tests/*,apps/*'
+	$(VENV)/bin/coverage run -a --source=. -m pytest backend/tests
+	$(VENV)/bin/coverage report --omit='test_*,*/tests/*,apps/*,backend/*'

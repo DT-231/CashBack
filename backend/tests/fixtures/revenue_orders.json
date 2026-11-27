@@ -1,0 +1,11 @@
+{"code": 0, "data": {"total_count": 2, "list": [
+  {"utm_content": "fb01-1---", "capped_commission": 403750000, "gross_commission": 0,
+   "orders": [{"order_sn": "SN001", "items": [
+     {"item_id": 111, "shop_id": 222, "shop_name": "Shop A", "item_name": "Nồi chiên mẫu",
+      "item_price": 9500000000, "qty": 2, "item_commission": 403750000,
+      "brand_commission_rate": 0, "platform_commission_rate": 250,
+      "global_category_lv1_name": "Nhà cửa", "global_category_lv3_name": "Nồi"}]}]},
+  {"utm_content": "", "capped_commission": 0, "gross_commission": 100000000,
+   "orders": [{"order_sn": "SN002", "items": [
+     {"item_id": 333, "shop_id": 444, "item_name": "Hàng không sub_id", "item_price": 100000000,
+      "qty": 1, "item_commission": 100000000}]}]}]}}
