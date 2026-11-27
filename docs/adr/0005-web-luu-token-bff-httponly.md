@@ -13,7 +13,7 @@
 ## Quyết định (phương án C)
 1. **Cookie** (đặt bởi BFF, không bao giờ bởi JS):
    - `__Host-access`: access token; `HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age` = `expires_in`.
-   - `__Secure-refresh`: refresh token; `HttpOnly; Secure; SameSite=Strict; Path=/bff/auth; Max-Age=30 ngày` (chỉ gửi tới endpoint refresh/logout).
+   - `__Secure-refresh`: refresh token; `HttpOnly; Secure; SameSite=Strict; Path=/bff; Max-Age=30 ngày` (chỉ gửi tới các route BFF, không bao giờ tới trang HTML; cần cho cả `/bff/auth/*` lẫn `/bff/api/*` vì proxy tự làm mới).
 2. **BFF chỉ là ống dẫn và quản lý token.** Không có nghiệp vụ, không tính tiền, không đổi hình dạng dữ liệu. Các route:
    - `POST /bff/auth/{register,login,logout}`; `POST /bff/auth/refresh` (nội bộ).
    - `/bff/api/<path>` chuyển tiếp tới `API_BASE_URL/api/v1/<path>` theo **danh sách cho phép** (đường dẫn + phương thức), gắn `Authorization: Bearer` từ cookie. Gặp `401` thì tự làm mới token **một lần** rồi thử lại; làm mới lỗi (`invalid_refresh`) thì xóa cookie và trả `401 session_expired` để UI chuyển về đăng nhập.
