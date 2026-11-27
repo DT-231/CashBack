@@ -136,3 +136,20 @@ def test_startup_guard_reports_missing_tables(scratch):
             assert_least_privilege(app)
         finally:
             dbmod.IMMUTABLE_TABLES = original
+
+
+def test_startup_guard_names_superuser_even_when_not_the_table_owner(scratch):
+    from app.core.config import ConfigError
+    from app.core.db import assert_least_privilege
+
+    owner, app = scratch
+    with owner.connect() as c:
+        c.execute(text('CREATE ROLE "itest_super_x" LOGIN SUPERUSER PASSWORD \'pw-super\''))
+    try:
+        sup = create_engine(app.url.set(username="itest_super_x", password="pw-super").render_as_string(hide_password=False))
+        with pytest.raises(ConfigError, match="superuser"):
+            assert_least_privilege(sup)
+        sup.dispose()
+    finally:
+        with owner.connect() as c:
+            c.execute(text('DROP ROLE IF EXISTS "itest_super_x"'))
