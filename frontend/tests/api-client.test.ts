@@ -88,4 +88,20 @@ describe("api-client: rút tiền, admin, TOTP", () => {
     expect(e.isAuth).toBe(false);
     expect(e.isMfaRequired).toBe(false);
   });
+
+  it("admin console: đường dẫn, phương thức và body", async () => {
+    const f = vi.fn(async () => json({}));
+    vi.stubGlobal("fetch", f);
+    await api.adminOverview(7); await api.adminUsers({ q: "a@b", limit: 20 }); await api.adminSetUserStatus(5, "locked", "gian lận");
+    await api.adminOrders({ status: "PENDING", source: "unknown" }); await api.adminOrphans({ limit: 10, offset: 10 });
+    await api.adminAssignOrphan(9, 5, "khiếu nại"); await api.adminSetShopeeCookie("a=b"); await api.adminShopeeSessionStatus();
+    expect(sig(f)).toEqual([
+      "GET /bff/api/admin/overview?days=7", "GET /bff/api/admin/users?q=a%40b&limit=20", "PATCH /bff/api/admin/users/5",
+      "GET /bff/api/admin/orders?status=PENDING&source=unknown", "GET /bff/api/admin/orphans?limit=10&offset=10",
+      "POST /bff/api/admin/orphans/9/assign", "PUT /bff/api/admin/shopee-session", "GET /bff/api/admin/shopee-session/status"]);
+    expect(JSON.parse(String(call(f, 2)[1].body))).toEqual({ status: "locked", reason: "gian lận" });
+    expect(JSON.parse(String(call(f, 5)[1].body))).toEqual({ user_id: 5, reason: "khiếu nại" });
+    expect(JSON.parse(String(call(f, 6)[1].body))).toEqual({ cookie: "a=b" });
+    expect((call(f, 2)[1].headers as Record<string, string>)["x-csrf"]).toBe("1");
+  });
 });

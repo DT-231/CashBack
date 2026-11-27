@@ -46,4 +46,27 @@ export type WithdrawalRules = {
 export type MfaStatus = { enabled: boolean; pending: boolean; verified: boolean };
 export type MfaSetup = { secret: string; otpauth_uri: string };
 export type MfaEnableOut = { recovery_codes: string[] };
+/** Admin console (T-043/T-044/T-063). Số tiền VND nguyên; micro = hoa hồng Shopee ×1e5 (chỉ hiển thị qua formatMicro nếu có, UI không tự quy đổi). */
+export type AdminOverview = {
+  days: number;
+  users: { total: number; new: number; locked: number };
+  clicks: number; links: number;
+  orders: Record<string, { count: number; commission_micro: number }>;
+  orphans_open: number;
+  wallet_totals_vnd: { pending: number; available: number; held: number };
+  withdrawals: Record<string, { count: number; amount_vnd: number }>;
+  last_sync: { result: string; finished_at: string } | null;
+};
+export type AdminUser = {
+  id: number; email: string; role: "member" | "staff" | "admin"; status: "unverified" | "active" | "locked"; created_at: string;
+  available_vnd: number; pending_vnd: number; held_vnd: number;
+};
+export type AdminOrder = {
+  id: number; order_sn: string; status: "PENDING" | "COMPLETED" | "CANCELLED" | "RETURNED"; source_type: string;
+  user_id: number | null; post_id: number | null; commission_micro: number; purchase_time: string | null; completed_at: string | null;
+};
+export type AdminOrphan = {
+  id: number; order_sn: string; status: string; commission_micro: number; purchase_time: string | null; utm_content: string | null; reason: string;
+};
+export type ShopeeSessionStatus = { has_cookie: boolean; status: "unknown" | "healthy" | "degraded" | "expired" | "blocked"; last_ok_at: string | null; failure_count: number; updated_at: string | null };
 export type ApiErrorBody = { error: { code: string; message: string; request_id: string | null } };

@@ -25,6 +25,15 @@ const RULES: ReadonlyArray<Rule> = [
   { method: "POST", segments: ["auth", "mfa", "setup"] },
   { method: "POST", segments: ["auth", "mfa", "enable"] },
   { method: "POST", segments: ["auth", "mfa", "disable"] },
+  // Admin: tổng quan, người dùng, đơn, đơn mồ côi, cookie Shopee (backend kiểm admin + TOTP)
+  { method: "GET", segments: ["admin", "overview"] },
+  { method: "GET", segments: ["admin", "users"] },
+  { method: "PATCH", segments: ["admin", "users", ID] },
+  { method: "GET", segments: ["admin", "orders"] },
+  { method: "GET", segments: ["admin", "orphans"] },
+  { method: "POST", segments: ["admin", "orphans", ID, "assign"] },
+  { method: "PUT", segments: ["admin", "shopee-session"] },
+  { method: "GET", segments: ["admin", "shopee-session", "status"] },
   // Admin: duyệt/chi trả
   { method: "GET", segments: ["admin", "withdrawals"] },
   { method: "GET", segments: ["admin", "withdrawals", "export.csv"] },
