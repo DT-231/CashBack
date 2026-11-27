@@ -15,7 +15,6 @@ from sqlalchemy.exc import DBAPIError
 from app.main_api import create_app
 from app.modules.audit.service import Actor, AuditContext
 from app.modules.payout import service as payout_service
-from app.modules.payout.errors import IdempotencyConflict, OpenRequestExists
 from app.modules.payout.schemas import BankAccountIn
 from app.modules.payout.service import PayoutService
 from app.modules.wallet import ledger
@@ -42,7 +41,7 @@ def pg():
         c.execute(text(f"DELETE FROM wallets WHERE user_id IN {users}"))
         c.execute(text(f"DELETE FROM refresh_tokens WHERE user_id IN {users}"))
         c.execute(text("DELETE FROM users WHERE email LIKE 'itest-%@example.test'"))
-        c.execute(text("DELETE FROM rate_limits WHERE key LIKE 'withdraw_%' OR key LIKE 'bank_add_%'"))
+        c.execute(text("DELETE FROM rate_limits WHERE key ~ '^(withdraw_|bank_add_|register_ip:|login_ip:|login_email:|refresh_ip:)'"))
     eng.dispose()
 
 
@@ -349,7 +348,7 @@ def test_only_admin_can_approve_pay_or_view_accounts(api, pg):
     uid, h, acct, wid = requested(api, pg)
     _, sh = new_user(api, pg, "staff")
     _, ah = new_user(api, pg, "admin")
-    paths = [("post", f"/approve", {}), ("post", "/reject", {"reason": "khong hop le"}), ("post", "/fail", {"reason": "loi ngan hang"}),
+    paths = [("post", "/approve", {}), ("post", "/reject", {"reason": "khong hop le"}), ("post", "/fail", {"reason": "loi ngan hang"}),
              ("post", "/mark-paid", {"provider_ref": "FT123456"}), ("get", "/payout-account", None)]
     for who, hh in (("member", h), ("staff", sh), ("anon", {})):
         for method, suffix, body in paths:
