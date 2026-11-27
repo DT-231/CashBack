@@ -11,4 +11,15 @@ export type EntryOut = {
   order_id: number | null; withdrawal_id: number | null; created_at: string;
 };
 
+/** Đơn của tôi. Số tiền và mốc thời gian do backend tính; UI chỉ hiển thị (ADR 0005). */
+export type OrderOut = {
+  id: number;
+  order_ref: string;
+  status: "PENDING" | "COMPLETED" | "CANCELLED" | "RETURNED";
+  product_name: string | null;
+  purchased_at: string | null;
+  refund_vnd: number;
+  refund_state: "none" | "pending" | "available" | "cancelled" | "reversed";
+  expected_release_at: string | null;
+};
 export type ApiErrorBody = { error: { code: string; message: string; request_id: string | null } };
