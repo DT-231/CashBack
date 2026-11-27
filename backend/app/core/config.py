@@ -59,6 +59,7 @@ class Settings(BaseSettings):
     agent_api_key: SecretStr = SecretStr("")  # khóa khởi tạo cho Tool API; thêm khóa khác qua bảng agent_keys
 
     # --- đồng bộ đơn ---
+    sync_max_age_hours: int = Field(default=24, ge=1, le=720)   # lần sync ok gần nhất cũ hơn mức này thì KHÔNG chuyển tiền
     sync_days: int = Field(default=60, ge=1, le=366)   # quét lại cửa sổ này để bắt đơn đổi trạng thái
 
     # --- click (/go/{code}) ---
