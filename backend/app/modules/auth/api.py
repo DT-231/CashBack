@@ -12,6 +12,7 @@ from app.modules.auth.schemas import LoginIn, RefreshIn, RegisterIn, TokenOut, U
 from app.modules.auth.service import AuthService
 
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
+_AUDIT_ROLE = {"member": "user", "staff": "staff", "admin": "admin"}
 
 
 def _service(request: Request) -> AuthService:
@@ -66,7 +67,12 @@ def login(body: LoginIn, request: Request):
         ("login_ip", request_ip(request, settings), settings.rl_login_per_minute, 60),
         ("login_email", body.email, settings.rl_login_per_email_15min, 900),
     ])
-    return _service(request).login(body.email, body.password)
+    tokens = _service(request).login(body.email, body.password)
+    claims = security.decode_access_token(settings, tokens.access_token) or {}     # id/role của người vừa đăng nhập (không lộ email vào audit)
+    st = request.app.state
+    record_best_effort(st.get_engine(), settings, Actor(int(claims["sub"]), _AUDIT_ROLE.get(claims.get("role"), "user")), "auth.login",
+                       target_type="user", target_id=claims["sub"], ip=request_ip(request, settings))
+    return tokens
 
 
 @router.post("/refresh", response_model=TokenOut)

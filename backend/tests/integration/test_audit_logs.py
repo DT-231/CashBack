@@ -141,11 +141,15 @@ def test_register_and_logout_are_audited_via_api(make_settings):
     uid = r.json()["id"]
     login = client.post("/api/v1/auth/login", json={"email": email, "password": "mat-khau-hop-le-1"}).json()
     assert client.post("/api/v1/auth/logout", headers={"authorization": f"Bearer {login['access_token']}", "cf-connecting-ip": IP}).status_code == 204
+    logins = [x for x in rows(eng, "auth.login") if x["target_id"] == str(uid)]
+    assert len(logins) == 1 and logins[0]["actor_id"] == uid and logins[0]["actor_role"] == "user" and logins[0]["ip_hash"] == keyed_hash(s, "testclient")
+    bad = client.post("/api/v1/auth/login", json={"email": email, "password": "sai-mat-khau-1"})
+    assert bad.status_code == 401 and len([x for x in rows(eng, "auth.login") if x["target_id"] == str(uid)]) == 1   # đăng nhập sai không ghi "auth.login"
     reg = [x for x in rows(eng, "auth.register") if x["target_id"] == str(uid)]
     out = [x for x in rows(eng, "auth.logout") if x["target_id"] == str(uid)]
     assert len(reg) == 1 and reg[0]["actor_id"] == uid and reg[0]["actor_role"] == "user" and reg[0]["ip_hash"] == keyed_hash(s, IP)
     assert len(out) == 1 and out[0]["actor_id"] == uid
-    blob = json.dumps([dict(x) for x in reg + out], default=str)
+    blob = json.dumps([dict(x) for x in reg + out + logins], default=str)
     assert email not in blob and "mat-khau" not in blob and IP not in blob and login["access_token"] not in blob
     with eng.begin() as c:
         c.execute(text("DELETE FROM refresh_tokens WHERE user_id = :u"), {"u": uid})
