@@ -21,6 +21,7 @@ describe("MfaPage", () => {
     fireEvent.change(screen.getByLabelText("Mã xác minh"), { target: { value: "123456" } });
     fireEvent.click(screen.getByRole("button", { name: "Bật" }));
     expect(await screen.findByText("recovery-8")).toBeTruthy();
+    expect(screen.getByText("Hãy lưu ở nơi an toàn ngoài máy này; sẽ không hiện lại.")).toBeTruthy();
     const proceed = screen.getByRole("button", { name: "Tiếp tục" }) as HTMLButtonElement;
     expect(proceed.disabled).toBe(true);
     fireEvent.click(screen.getByRole("checkbox")); fireEvent.click(proceed);

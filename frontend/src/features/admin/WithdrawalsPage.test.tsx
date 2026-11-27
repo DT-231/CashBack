@@ -27,6 +27,7 @@ describe("WithdrawalsPage", () => {
     for (const text of ["Đã duyệt", "Bị từ chối", "Đang xử lý", "Đã chi trả", "Chuyển khoản lỗi"]) expect(screen.getByText((_content, element) => element?.tagName === "P" && element.textContent?.endsWith(text) === true)).toBeTruthy();
     expect(screen.getByText("CASHBACK W1 / nguyên văn")).toBeTruthy();
     expect(document.body.textContent).not.toContain("Mã giao dịch:"); expect(document.body.textContent).not.toContain("Lý do:");
+    expect(screen.queryByRole("button", { name: "Xem thêm" })).toBeNull();            // lần tải đầu < 50 dòng: không có "Xem thêm"
     const requested = screen.getByText("Yêu cầu #1").parentElement!;
     expect(within(requested).getByRole("button", { name: "Duyệt" })).toBeTruthy();
     for (const id of [3, 4, 5, 6]) expect(within(screen.getByText(`Yêu cầu #${id}`).parentElement!).queryByRole("button")).toBeNull();
@@ -109,7 +110,8 @@ describe("WithdrawalsPage", () => {
     expect(mocks.csv).toHaveBeenCalledTimes(1);
     finish(blob);
     await screen.findByText("Tệp chứa số tài khoản đầy đủ: lưu an toàn và xóa sau khi chuyển khoản");
-    expect(createObjectURL).toHaveBeenCalledWith(blob); expect(revokeObjectURL).toHaveBeenCalledWith("blob:csv");
+    expect(createObjectURL).toHaveBeenCalledTimes(1); expect(createObjectURL.mock.calls[0][0]).toBe(blob);   // đúng Blob do api trả về (so sánh danh tính, không phải so sánh sâu)
+    expect(revokeObjectURL).toHaveBeenCalledWith("blob:csv");
     expect(click).toHaveBeenCalled();
     mocks.csv.mockRejectedValueOnce(new ApiError(403, "mfa_required", "mfa required", null));
     fireEvent.click(screen.getByRole("button", { name: "Tải CSV chuyển khoản (các yêu cầu đã duyệt)" }));
@@ -227,4 +229,11 @@ describe("WithdrawalsPage", () => {
     }
     await waitFor(() => expect(mocks.router.replace).toHaveBeenCalledWith("/login"));
   });
+
+  it("lỗi mạng khi tải danh sách hiện đúng câu, không trang trắng", async () => {
+    mocks.withdrawals.mockRejectedValueOnce(new ApiError(0, "network"));
+    render(<WithdrawalsPage />);
+    expect((await screen.findByRole("alert")).textContent).toBe("Không kết nối được máy chủ");
+  });
+
 });
