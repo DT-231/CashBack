@@ -5,7 +5,7 @@ PY     := $(VENV)/bin/python
 export MOCK ?= 1
 DB_URL ?= postgresql+psycopg://cashback:cashback_dev@127.0.0.1:5433/cashback
 
-.PHONY: venv test db-up test-db lint fmt cov
+.PHONY: venv test db-up test-db lint fmt cov sync-once
 
 venv:
 	python3 -m venv $(VENV)
@@ -30,3 +30,7 @@ fmt:
 cov:
 	$(VENV)/bin/coverage run --source=backend/app -m pytest backend/tests
 	$(VENV)/bin/coverage report
+
+# Đồng bộ đơn một lần (MOCK=1 mặc định: dùng fixture, không gọi Shopee). Cần: make db-up
+sync-once:
+	cd backend && DATABASE_URL=$(DB_URL) SUBID_SECRET=$${SUBID_SECRET:-dev-subid-secret-0123456789abcdef} ../$(PY) -m app.main_worker sync-once

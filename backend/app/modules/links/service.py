@@ -115,3 +115,8 @@ class UserLinkService:
         """Link affiliate cho sản phẩm với sub_id đã ký (do caller dựng bằng app.core.subid)."""
         self.settings.require("shopee_aff_id")
         return make_link(product_url(shop_id, item_id), sub_id, LinkConfig.from_settings(self.settings))
+
+    def link_belongs_to(self, user_id: int, link_id: int) -> bool:
+        """Dùng cho khớp đơn: link này có đúng của user này không."""
+        with self.engine.connect() as conn:
+            return repository.link_belongs_to(conn, user_id, link_id)

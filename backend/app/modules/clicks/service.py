@@ -63,3 +63,8 @@ class ClickService:
         except Exception:   # noqa: BLE001 - bất kỳ lỗi ghi click nào cũng phải rơi về link mức link; có log đầy đủ
             log.exception("không ghi được click, chuyển hướng bằng sub_id mức link", extra={"link_id": link.link_id})
             return link_level
+
+    def link_of_click(self, click_id: int) -> int | None:
+        """Dùng cho khớp đơn: click này thuộc link nào (None nếu không có click)."""
+        with self.engine.connect() as conn:
+            return repository.link_of_click(conn, click_id)
