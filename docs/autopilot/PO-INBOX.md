@@ -10,3 +10,4 @@
 | 6 | Tạo role `cashback_app` (`infra/db/app-role.sql`) và đổi `DATABASE_URL` của API khi muốn thử rút tiền | Khởi động từ chối rút tiền nếu user DB là superuser/chủ bảng | Không bật được rút tiền (đúng ý) |
 | 7 | Sao lưu `BANK_ENC_KEY` ngoài `.env` (hai nơi); bật TOTP cho tài khoản admin thật | Mất khóa = không trả được cho ai | Không được bật rút tiền thật |
 | 8 | Duyệt và merge `autopilot/main` vào `main` | Autopilot không sửa `main` | Mọi thay đổi chỉ nằm ở `autopilot/main` |
+| 9 | **Gỡ `.claude/settings.json` khỏi `autopilot/main` trước khi merge vào `main`** (`git rm --cached .claude/settings.json`) | Commit `Merge task/T-018` vô tình kéo theo file cấu hình plugin cục bộ (do `git add -A` khi plugin vừa cài). Autopilot không được sửa `.claude/` nên không tự gỡ; nội dung chưa kiểm có secret hay không | Cấu hình cục bộ lọt vào repo public |
