@@ -196,6 +196,7 @@ Nguồn dữ liệu máy đọc: `backlog/issues.csv` (cùng nội dung).
   - Given cùng idem_key When ghi 2 lần Then chỉ 1 dòng
   - Given nhiều giao dịch song song When cập nhật ví Then không lệch số dư
   - Given tổng entry When so với wallets Then bằng nhau
+  - Given user mới đăng ký chưa có dòng ví When wallet đọc số dư Then trả 0/0/0 và tạo dòng wallets khi ghi lần đầu (auth không được ghi bảng ví)
 
 ### T-031: Là thành viên, tôi muốn tiền hoàn vào chờ xác nhận rồi mới thành rút được sau hạn trả hàng
 - Loại: feature · 8 điểm · Must · Sprint 3 · Owner: claude · Phụ thuộc: T-030, T-022
