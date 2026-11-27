@@ -110,7 +110,7 @@ describe("WithdrawalsPage", () => {
     expect(mocks.csv).toHaveBeenCalledTimes(1);
     finish(blob);
     await screen.findByText("Tệp chứa số tài khoản đầy đủ: lưu an toàn và xóa sau khi chuyển khoản");
-    expect(createObjectURL).toHaveBeenCalledTimes(1); expect(createObjectURL.mock.calls[0][0]).toBe(blob);   // đúng Blob do api trả về (so sánh danh tính, không phải so sánh sâu)
+    expect(createObjectURL).toHaveBeenCalledTimes(1); expect((createObjectURL.mock.calls as unknown as Blob[][])[0][0]).toBe(blob);   // đúng Blob do api trả về (so sánh danh tính, không phải so sánh sâu)
     expect(revokeObjectURL).toHaveBeenCalledWith("blob:csv");
     expect(click).toHaveBeenCalled();
     mocks.csv.mockRejectedValueOnce(new ApiError(403, "mfa_required", "mfa required", null));
@@ -231,7 +231,7 @@ describe("WithdrawalsPage", () => {
   });
 
   it("lỗi mạng khi tải danh sách hiện đúng câu, không trang trắng", async () => {
-    mocks.withdrawals.mockRejectedValueOnce(new ApiError(0, "network"));
+    mocks.withdrawals.mockRejectedValueOnce(new ApiError(0, "network", "network", null));
     render(<WithdrawalsPage />);
     expect((await screen.findByRole("alert")).textContent).toBe("Không kết nối được máy chủ");
   });
