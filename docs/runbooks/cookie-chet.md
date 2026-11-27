@@ -9,4 +9,6 @@ Có 2 cookie khác host: `SHOPEE_COOKIE` (affiliate.shopee.vn, dashboard/báo c�
 4. Vẫn 403: IP bị chặn → đặt `SHOPEE_PROXY` bằng proxy IP nhà.
 **Cách khuyến nghị (T-063): lưu cookie mã hóa trong DB thay vì `.env`.** Admin (đã bật TOTP) gọi `PUT /api/v1/admin/shopee-session {"cookie": "<dòng Cookie>"}`: cookie được mã hóa AES-GCM bằng `BANK_ENC_KEY`, **không có đường nào đọc lại** qua API/log/audit (audit chỉ ghi số byte). Worker (`main_worker sync-once`, MOCK=0) dùng cookie trong DB thay cho `SHOPEE_COOKIE`. Xem trạng thái: `GET /api/v1/admin/shopee-session/status` → `healthy | degraded | blocked | unknown`, `failure_count`, `last_ok_at` (nền cho cảnh báo T-023). Đặt cookie mới thì trạng thái về `unknown` và đếm lỗi về 0. Mất `BANK_ENC_KEY` thì worker coi như chưa có cookie trong DB (rơi về `SHOPEE_COOKIE` nếu có): dán lại cookie.
 
+**Cảnh báo (T-023):** đặt `TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID` (chỉ máy chạy worker). Bị chặn/hết hạn: báo ngay; lỗi thường: báo sau `ALERT_AFTER_FAILURES` (3) lần liên tiếp; còn lỗi: nhắc lại mỗi `ALERT_REPEAT_HOURS` (6) giờ; hồi phục: báo một lần. Tin nhắn không chứa cookie; MOCK=1 không bao giờ gửi.
+
 **Trong lúc chờ:** không chuyển tiền pending→available (quy tắc tiền); dùng import CSV báo cáo thủ công (T-024).
