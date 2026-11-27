@@ -83,7 +83,7 @@ Ghi chú: các mục trên là điều kiện **mở cho người ngoài**. Dùn
   - Given bản nháp When gửi PO Then đánh dấu cần tư vấn pháp lý
 
 ### T-065: Là admin, tôi muốn log có cấu trúc, che bí mật và trang health
-- **Backend đã làm (2026-11-28, `autopilot/main`)**: che log theo mẫu khóa (token, secret, cookie, bearer, JWT, mật khẩu trong URL...) và `GET /api/v1/admin/health`. Trang health trên web: chưa.
+- **Backend đã làm (2026-11-28, `autopilot/main`)**: che log theo mẫu khóa (token, secret, cookie, bearer, JWT, mật khẩu trong URL...) và `GET /api/v1/admin/health`. Trang health trên web: đã làm (T-066).
 - Loại: feature · 3 điểm · Must · Sprint 6 · Owner: codex · Phụ thuộc: T-002
 - Acceptance criteria:
   - Given log When có cookie/token Then bị che
@@ -130,7 +130,7 @@ Ghi chú: các mục trên là điều kiện **mở cho người ngoài**. Dùn
   - Given sai mật khẩu 5 lần When thử Then bị khóa tạm theo IP+email
 
 ### T-011: Là thành viên, tôi muốn xác minh email và quên mật khẩu để lấy lại tài khoản
-- **Backend đã làm (2026-11-28, `autopilot/main`)**: token, endpoint, Mailer SMTP (cần `SMTP_*`, `WEB_ORIGIN`; chưa gửi thư thật lần nào). **Trang web `/verify-email`, `/reset-password`, `/forgot-password`: chưa làm** (việc cho Codex). Bật `REQUIRE_EMAIL_VERIFY=1` chỉ khi SMTP đã chạy.
+- **Backend đã làm (2026-11-28, `autopilot/main`)**: token, endpoint, Mailer SMTP (cần `SMTP_*`, `WEB_ORIGIN`; chưa gửi thư thật lần nào). **Trang web `/verify-email`, `/reset-password`, `/forgot-password` đã làm (T-066).** Bật `REQUIRE_EMAIL_VERIFY=1` chỉ khi SMTP đã chạy.
 - Loại: feature · 5 điểm · Must · Sprint 1 · Owner: codex · Phụ thuộc: T-010
 - Acceptance criteria:
   - Given token hợp lệ When xác minh Then user active
@@ -336,7 +336,7 @@ Ghi chú: các mục trên là điều kiện **mở cho người ngoài**. Dùn
   - Given gán When xong Then audit ghi người làm và lý do
 
 ### T-052: Là admin, tôi muốn đối soát: hoa hồng Shopee − chia user − lợi nhuận
-- **Backend đã làm (2026-11-28, `autopilot/main`)**: đối soát tháng và kiểm tra toàn vẹn sổ cái. Giao diện: chưa. Đối chiếu với số Shopee THẬT trả cho PO (so với tổng `shopee_commission_vnd` đã chuyển tiền): việc của PO khi có dữ liệu (xem `PO-INBOX.md`).
+- **Backend đã làm (2026-11-28, `autopilot/main`)**: đối soát tháng và kiểm tra toàn vẹn sổ cái. Giao diện đối soát: đã làm (T-066). Đối chiếu với số Shopee THẬT trả cho PO (so với tổng `shopee_commission_vnd` đã chuyển tiền): việc của PO khi có dữ liệu (xem `PO-INBOX.md`).
 - Loại: feature · 5 điểm · Should · Sprint 5 · Owner: claude · Phụ thuộc: T-031
 - Acceptance criteria:
   - Given tháng M When xem Then X(Shopee) = Y(chia user) + Z(mồ côi + bài) + lợi nhuận
