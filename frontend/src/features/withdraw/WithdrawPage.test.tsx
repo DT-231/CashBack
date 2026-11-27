@@ -210,7 +210,7 @@ describe("WithdrawPage", () => {
     expect(api.myWithdrawals).toHaveBeenCalledTimes(2);
     vi.mocked(api.myWithdrawals).mockResolvedValueOnce([withdrawal(100)]);
     fireEvent.click(screen.getByRole("button", { name: "Xem thêm" }));
-    expect(await screen.findAllByText("Trạng thái: Đang chờ duyệt")).toHaveLength(101);   // đợi tải xong rồi mới kiểm nút (trong lúc tải nút đang là "Đang tải…")
+    await waitFor(() => expect(screen.getAllByText("Trạng thái: Đang chờ duyệt")).toHaveLength(101));   // đợi tải xong rồi mới kiểm nút (trong lúc tải nút đang là "Đang tải…")
     expect(screen.queryByRole("button", { name: "Xem thêm" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Đang tải…" })).toBeNull();
     vi.mocked(api.myWithdrawals).mockResolvedValue([]);
