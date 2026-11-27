@@ -58,6 +58,10 @@ class Settings(BaseSettings):
     cors_origins: str = ""                 # danh sách origin, ngăn bằng dấu phẩy; rỗng = tắt CORS
     agent_api_key: SecretStr = SecretStr("")  # khóa khởi tạo cho Tool API; thêm khóa khác qua bảng agent_keys
 
+    # --- click (/go/{code}) ---
+    ip_salt: SecretStr = SecretStr("")       # khóa HMAC băm IP/User-Agent; rỗng = KHÔNG lưu ip_hash/ua_hash
+    trust_proxy_headers: bool = False        # True khi đứng sau Cloudflare/Tunnel: lấy IP thật từ CF-Connecting-IP
+
     # --- đăng nhập (module auth) ---
     jwt_secret: SecretStr = SecretStr("")    # >= 32 ký tự; rỗng thì endpoint auth trả 503
     access_ttl_min: int = 15
