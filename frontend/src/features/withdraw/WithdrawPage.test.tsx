@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const replace = vi.fn();
@@ -34,7 +34,8 @@ const submitWithdrawal = () => {
 
 beforeEach(() => {
   vi.clearAllMocks(); defaultMocks();
-  vi.stubGlobal("crypto", { randomUUID: vi.fn(() => `key-${Math.random().toString(36).slice(2)}`) });
+  let keySequence = 0;
+  vi.stubGlobal("crypto", { randomUUID: vi.fn(() => `test-key-${String(++keySequence).padStart(8, "0")}`) });
 });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
@@ -49,17 +50,23 @@ describe("WithdrawPage", () => {
 
   it("tắt cả hai biểu mẫu khi rút tiền chưa mở", async () => {
     vi.mocked(api.withdrawalRules).mockResolvedValue({ ...rules, withdrawals_enabled: false });
+    vi.mocked(api.myWithdrawals).mockResolvedValue([withdrawal(1)]);
     render(<WithdrawPage />);
     expect(await screen.findByText("Tính năng rút tiền chưa mở")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Thêm tài khoản" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Rút tiền" })).toBeNull();
+    expect(screen.queryByText("Lịch sử yêu cầu rút")).toBeNull();
   });
 
-  it("chỉ cho chọn tài khoản usable_now=false theo cờ API và hiện usable_from", async () => {
-    await ready();
-    expect(screen.getByText(/Chưa dùng được để rút\. Dùng được từ 10:04 02\/01\/2100/)).toBeTruthy();
+  it("chỉ hiện thời gian chờ trong dòng tài khoản chưa dùng được; lấy quy tắc từ API", async () => {
+    vi.mocked(api.withdrawalRules).mockResolvedValue({ ...rules, min_withdraw_vnd: 76543, bank_change_cooldown_hours: 72 });
+    render(<WithdrawPage />); await screen.findByText("Tối thiểu mỗi lần: 76.543 ₫");
+    expect(screen.getByText("Tối thiểu mỗi lần: 76.543 ₫")).toBeTruthy();
+    expect(screen.getByText("Tài khoản mới dùng được sau 72 giờ kể từ khi thêm")).toBeTruthy();
+    const [usable, cooling] = screen.getAllByRole("listitem").filter((item) => item.textContent?.includes("•••• 1234"));
+    expect(within(usable).queryByText(/Chưa dùng được để rút/)).toBeNull();
+    expect(within(cooling).getByText(/Chưa dùng được để rút\. Dùng được từ 10:04 02\/01\/2100/)).toBeTruthy();
     expect(screen.getByRole("option", { name: "VCB · •••• 1234" })).toBeTruthy();
-    expect(screen.getByRole("option", { name: "VCB · •••• 1234" }).parentElement?.querySelectorAll("option")).toHaveLength(2);
     expect(screen.getByLabelText("Tài khoản nhận").querySelectorAll("option")).toHaveLength(2);
   });
 
@@ -84,6 +91,15 @@ describe("WithdrawPage", () => {
     await waitFor(() => expect(screen.getByText("Đã gửi yêu cầu rút")).toBeTruthy());
     expect((screen.getByLabelText("Số tiền") as HTMLInputElement).value).toBe("");
     expect(api.wallet).toHaveBeenCalledTimes(2); expect(api.myWithdrawals).toHaveBeenCalledTimes(2);
+  });
+
+  it("tạo idempotency key mới cho ý định mới sau khi gửi thành công", async () => {
+    await ready(); submitWithdrawal();
+    await screen.findByText("Đã gửi yêu cầu rút");
+    const firstKey = vi.mocked(api.requestWithdrawal).mock.calls[0][1];
+    submitWithdrawal();
+    await waitFor(() => expect(api.requestWithdrawal).toHaveBeenCalledTimes(2));
+    expect(vi.mocked(api.requestWithdrawal).mock.calls[1][1]).not.toBe(firstKey);
   });
 
   it("dùng lại key sau lỗi mạng và 429, nhưng đổi key sau đổi ý định hoặc thành công", async () => {
@@ -122,6 +138,19 @@ describe("WithdrawPage", () => {
     fireEvent.change(screen.getByLabelText("Số tiền"), { target: { value: "70000" } });
     const button = screen.getByRole("button", { name: "Rút tiền" });
     fireEvent.click(button); fireEvent.click(button);
+    expect(api.requestWithdrawal).toHaveBeenCalledTimes(1);
+    finish(withdrawal(2));
+  });
+
+  it("chặn gửi hai lần liên tiếp ở tầng submit của biểu mẫu", async () => {
+    let finish!: (row: ReturnType<typeof withdrawal>) => void;
+    vi.mocked(api.requestWithdrawal).mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));
+    await ready();
+    fireEvent.change(screen.getByLabelText("Tài khoản nhận"), { target: { value: "1" } });
+    fireEvent.change(screen.getByLabelText("Số tiền"), { target: { value: "70000" } });
+    const form = screen.getByLabelText("Số tiền").closest("form");
+    if (!form) throw new Error("Withdrawal form not found");
+    fireEvent.submit(form); fireEvent.submit(form);
     expect(api.requestWithdrawal).toHaveBeenCalledTimes(1);
     finish(withdrawal(2));
   });
@@ -172,14 +201,37 @@ describe("WithdrawPage", () => {
 
   it("phân trang theo số đã có, nối thêm đủ 50 dòng, ngăn bấm đúp; trang ngắn ẩn nút", async () => {
     vi.mocked(api.myWithdrawals).mockResolvedValueOnce(Array.from({ length: 50 }, (_, i) => withdrawal(i)))
-      .mockImplementationOnce(() => new Promise((resolve) => setTimeout(() => resolve([withdrawal(50)]), 15)));
+      .mockImplementationOnce(() => new Promise((resolve) => setTimeout(() => resolve(Array.from({ length: 50 }, (_, i) => withdrawal(i + 50))), 15)));
     await ready(); const button = await screen.findByRole("button", { name: "Xem thêm" });
     fireEvent.click(button); fireEvent.click(button);
     await waitFor(() => expect(api.myWithdrawals).toHaveBeenLastCalledWith({ limit: 50, offset: 50 }));
-    await waitFor(() => expect(screen.queryByRole("button", { name: "Xem thêm" })).toBeNull());
+    await waitFor(() => expect(screen.getAllByText("Trạng thái: Đang chờ duyệt")).toHaveLength(100));
+    expect(screen.getByRole("button", { name: "Xem thêm" })).toBeTruthy();
     expect(api.myWithdrawals).toHaveBeenCalledTimes(2);
+    vi.mocked(api.myWithdrawals).mockResolvedValueOnce([withdrawal(100)]);
+    fireEvent.click(screen.getByRole("button", { name: "Xem thêm" }));
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Xem thêm" })).toBeNull());
+    expect(await screen.findAllByText("Trạng thái: Đang chờ duyệt")).toHaveLength(101);
     vi.mocked(api.myWithdrawals).mockResolvedValue([]);
     cleanup(); await ready(); expect(screen.getByText("Chưa có yêu cầu rút tiền nào.")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Xem thêm" })).toBeNull();
+  });
+
+  it("sau khi gửi thành công chỉ hiện Xem thêm nếu lịch sử tải lại đủ 50 dòng", async () => {
+    vi.mocked(api.myWithdrawals).mockResolvedValueOnce(Array.from({ length: 50 }, (_, i) => withdrawal(i)))
+      .mockResolvedValueOnce(Array.from({ length: 12 }, (_, i) => withdrawal(i + 50)));
+    await ready();
+    submitWithdrawal();
+    await screen.findByText("Đã gửi yêu cầu rút");
+    await waitFor(() => expect(api.myWithdrawals).toHaveBeenCalledTimes(2));
+    expect(screen.queryByRole("button", { name: "Xem thêm" })).toBeNull();
+
+    cleanup(); vi.clearAllMocks(); defaultMocks();
+    vi.mocked(api.myWithdrawals).mockResolvedValueOnce(Array.from({ length: 50 }, (_, i) => withdrawal(i)))
+      .mockResolvedValueOnce(Array.from({ length: 50 }, (_, i) => withdrawal(i + 50)));
+    await ready(); submitWithdrawal();
+    await screen.findByText("Đã gửi yêu cầu rút");
+    await waitFor(() => expect(api.myWithdrawals).toHaveBeenCalledTimes(2));
+    expect(screen.getByRole("button", { name: "Xem thêm" })).toBeTruthy();
   });
 });
