@@ -49,7 +49,7 @@ POST /api/v1/links  {"url":"https://shopee.vn/Ten-i.1020310358.24088489429"}
 |---|---|---|
 | GET | `/agent/search?keyword=&limit=&min_rate=&min_sold=` | Tìm SP (feed → api → browser). Không trả link, tránh tạo link thừa |
 | POST | `/agent/links` | `{shop_id,item_id,post_key,page_code,category?}` → `{post_id, aff_link}`; `post_key` trùng → trả lại link cũ (idempotent), **không ghi đè đích** |
-| GET | `/agent/insights?days=30&group=category\|hour\|post\|page` | Click/đơn/hoa hồng theo nhóm, từ DB của ta |
+| GET | `/agent/insights?group=post\|category\|page\|hour&days=30&limit=100` | Số bài, số đơn, đơn hoàn thành và hoa hồng (VND nguyên, đã loại đơn hủy/trả) theo nhóm; `hour` là giờ đăng theo giờ Việt Nam. **Chỉ đơn từ bài đăng**: không có dữ liệu người dùng cashback. Chưa có click theo bài (Shopee không báo ở nguồn ta đọc) |
 | GET | `/agent/health` | Trạng thái nguồn tìm kiếm |
 
 Ví dụ:

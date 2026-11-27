@@ -54,6 +54,37 @@
           ]
         }
       }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "shopee_insights",
+        "description": "Xem bài đăng nào ra đơn và hoa hồng để học: nhóm theo post (từng bài), category (ngành), page (fanpage) hoặc hour (giờ đăng, giờ Việt Nam 0-23). Chỉ tính đơn từ các bài đã tạo link (không có dữ liệu người dùng). Hoa hồng là VND nguyên, đã loại đơn hủy/trả, số cuối cùng do Shopee duyệt. Dùng định kỳ để điều chỉnh ngành, giờ và fanpage đăng.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "group": {
+              "type": "string",
+              "enum": [
+                "post",
+                "category",
+                "page",
+                "hour"
+              ],
+              "description": "Cách nhóm"
+            },
+            "days": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 365,
+              "description": "Số ngày gần nhất (mặc định 30)"
+            }
+          },
+          "required": [
+            "group"
+          ]
+        }
+      }
     }
   ]
 }
