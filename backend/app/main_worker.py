@@ -9,6 +9,7 @@ from pydantic import SecretStr
 
 from app.core.config import ConfigError, load_settings
 from app.core.db import make_engine
+from app.integrations.telegram import build_notifier
 from app.core.logging import configure_logging
 from app.integrations.shopee import build_client
 from app.modules.orders.service import OrderSync
@@ -33,7 +34,7 @@ def main(argv=None) -> int:
             live = s.model_copy(update={"shopee_cookie": SecretStr(cookie)}) if cookie else s
             sync = OrderSync(s, engine, build_client(live)).run(a.days)
             if cookie:
-                sessions.record_result(sync.result, sync.blocked)
+                sessions.record_result(sync.result, sync.blocked, build_notifier(s))
             out["sync"] = sync.__dict__
         if a.command in ("settle-once", "run-once"):
             out["settle"] = WalletService(s, engine).settle().__dict__
