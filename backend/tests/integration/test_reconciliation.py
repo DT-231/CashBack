@@ -97,6 +97,11 @@ def test_reconciliation_numbers_match_the_ledger(api, pg, settings):
     other = api.get("/api/v1/admin/reconciliation", params={"month": OTHER_MONTH}, headers=ah).json()
     assert other["orders"] == {"COMPLETED": {"count": 1, "commission_micro": COMPLETED_MICRO, "attributed_micro": 0, "commission_vnd": 40_375, "attributed_vnd": 0}}
     assert other["completed"]["user_share_accrued_vnd"] == 0 and other["completed"]["platform_margin_vnd"] == 40_375   # đơn mồ côi: toàn bộ là biên
+    with pg.begin() as c:                                                                              # một khoản chi trả "bây giờ" (không thuộc 2099-06)
+        ledger.post(c, u, "accrual", "pending", 5_000, f"itest:r:e:a:{u}")
+        ledger.post(c, u, "release", "available", 5_000, f"itest:r:e:r:{u}")
+        ledger.post(c, u, "hold", "held", 5_000, f"itest:r:e:h:{u}")
+        ledger.post(c, u, "payout", "paid_out", 5_000, f"itest:r:e:p:{u}")
     empty = api.get("/api/v1/admin/reconciliation", params={"month": "2099-06"}, headers=ah).json()
     assert empty["orders"] == {} and empty["completed"]["platform_margin_vnd"] == 0 and empty["paid_out_vnd"] == 0   # chi trả ghi "bây giờ" không rơi vào tháng khác
 
