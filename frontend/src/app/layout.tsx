@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import "./globals.css";
 
 export const metadata = { title: "CashBack", description: "Hoàn tiền khi mua hàng Shopee" };
 
