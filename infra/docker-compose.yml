@@ -1,0 +1,40 @@
+# Dev: docker compose -f infra/docker-compose.yml up -d db migrate seed
+# Chỉ dùng cho phát triển. Mật khẩu dưới đây là mật khẩu dev, không dùng ở production.
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: cashback
+      POSTGRES_PASSWORD: cashback_dev
+      POSTGRES_DB: cashback
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cashback -d cashback"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  migrate:
+    build: ../apps/api
+    command: alembic upgrade head
+    environment:
+      DATABASE_URL: postgresql+psycopg://cashback:cashback_dev@db:5432/cashback
+    depends_on:
+      db:
+        condition: service_healthy
+
+  seed:
+    build: ../apps/api
+    command: python scripts/seed.py
+    environment:
+      DATABASE_URL: postgresql+psycopg://cashback:cashback_dev@db:5432/cashback
+      SEED_PASSWORD: dev-only-change-me
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+volumes:
+  pgdata:
