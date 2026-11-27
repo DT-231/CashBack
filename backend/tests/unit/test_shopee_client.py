@@ -41,13 +41,23 @@ def test_normalize_micro_price_is_divided():
     assert it["price"] == 690000 and it["rating"] == 4.76 and it["image"].endswith("/file/abc")
 
 
-def test_normalize_prefers_price_min_and_keeps_small_price():
-    assert ShopeeClient._normalize_item({"itemid": 1, "shopid": 2, "price_min": 150000, "price": 1})["price"] == 150000
+def test_normalize_price_is_always_micro_vnd():
+    """P2-8: price_min luôn là micro-VND, không đoán theo ngưỡng."""
+    it = ShopeeClient._normalize_item({"itemid": 1, "shopid": 2, "price_min": 15_000_000_000})
+    assert it["price"] == 150000 and it["price_max"] == 150000          # 150.000đ, không phải 15 tỷ
 
 
-def test_normalize_heuristic_misreads_large_plain_price():
-    """Audit #8: giá thật 15.000.000đ (không ×1e5) bị chia nhầm. Khóa hành vi hiện tại."""
-    assert ShopeeClient._normalize_item({"itemid": 1, "shopid": 2, "price": 15_000_001})["price"] == 150
+def test_normalize_small_prices_and_price_range_and_fallback_field():
+    it = ShopeeClient._normalize_item({"itemid": 1, "shopid": 2, "price_min": 5_000_000, "price_max": 9_900_000})
+    assert it["price"] == 50 and it["price_max"] == 99                  # món 50đ không bị đoán sai
+    assert ShopeeClient._normalize_item({"itemid": 1, "shopid": 2, "price": 69_000_000_000})["price"] == 690000
+    assert ShopeeClient._normalize_item({"itemid": 1, "shopid": 2})["price"] == 0   # không raise khi thiếu giá
+
+
+def test_normalize_sold_falls_back_to_historical_sold():
+    assert ShopeeClient._normalize_item({"itemid": 1, "shopid": 2, "historical_sold": 123})["sold"] == 123
+    assert ShopeeClient._normalize_item({"itemid": 1, "shopid": 2, "sold": 7, "historical_sold": 123})["sold"] == 7
+    assert ShopeeClient._normalize_item({"itemid": 1, "shopid": 2})["sold"] == 0
 
 
 def test_search_403_fails_fast_without_retry(monkeypatch):

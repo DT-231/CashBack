@@ -105,14 +105,17 @@ class ShopeeClient:
 
     @staticmethod
     def _normalize_item(basic: dict) -> dict:
-        price_raw = basic.get("price_min") or basic.get("price") or 0
-        # Shopee trả giá ×1e5; heuristic cũ giữ nguyên (xem audit #8, sẽ xử lý riêng).
-        price = micro_to_vnd_round(price_raw) if price_raw > 10_000_000 else int(round(price_raw))
+        # Giá của search v4 luôn là micro-VND (×1e5): không đoán theo ngưỡng
+        price_min_raw = basic.get("price_min") or basic.get("price") or 0
+        price_max_raw = basic.get("price_max") or price_min_raw
+        price = micro_to_vnd_round(price_min_raw)
+        price_max = micro_to_vnd_round(price_max_raw)
         rating = (basic.get("item_rating") or {}).get("rating_star") or 0
         img = basic.get("image") or ""
         return {
             "item_id": basic.get("itemid"), "shop_id": basic.get("shopid"), "name": basic.get("name"),
-            "price": price, "sold": basic.get("sold") or 0, "rating": round(float(rating), 2),
+            "price": price, "price_max": price_max,
+            "sold": basic.get("sold") or basic.get("historical_sold") or 0, "rating": round(float(rating), 2),
             "image": "https://down-vn.img.susercontent.com/file/" + img if img else "",
         }
 
