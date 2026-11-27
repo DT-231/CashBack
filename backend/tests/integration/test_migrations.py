@@ -42,6 +42,9 @@ def names(url, kind):
 def test_up_down_up(scratch_url):
     alembic(scratch_url, "upgrade", "head")
     assert "clicks_sub_id_idx" in names(scratch_url, "index") and "wallets" in names(scratch_url, "table")
+    assert "refresh_tokens" in names(scratch_url, "table")
+    alembic(scratch_url, "downgrade", "0002")
+    assert "refresh_tokens" not in names(scratch_url, "table")
     alembic(scratch_url, "downgrade", "0001")
     assert "clicks_sub_id_idx" not in names(scratch_url, "index") and "wallets" in names(scratch_url, "table")
     alembic(scratch_url, "downgrade", "base")
