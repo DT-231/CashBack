@@ -18,3 +18,5 @@ backups/
 image.png
 *.png
 !docs/**/*.png
+.coverage
+*.egg-info/
