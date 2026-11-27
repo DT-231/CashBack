@@ -44,3 +44,4 @@
 - Hai tab làm mới cùng lúc: backend có khoảng ân hạn 10 giây nên không đăng xuất nhầm, nhưng bên thua có thể nhận `401` một lần; BFF thử đọc lại cookie trước khi kết luận.
 - BFF chạy tiến trình Node ở máy nhà nên có thể khởi động lại bất cứ lúc nào: không giữ trạng thái quan trọng trong bộ nhớ tiến trình (không khóa làm mới token bằng biến toàn cục).
 - Nếu sau này chuyển web sang nơi khác (có domain riêng) vẫn giữ BFF; đổi phương án chỉ ảnh hưởng `lib/bff`, không ảnh hưởng UI, vì UI chỉ biết `lib/api-client.ts`.
+- **Phụ thuộc tên miền:** cookie `__Host-`/`__Secure-` cần HTTPS và hostname cố định; Tunnel có hostname cố định cần domain riêng (`docs/06` mục 0). Dùng tunnel nhanh `trycloudflare.com` thì URL đổi mỗi lần chạy và mọi phiên mất: chỉ để thử. Kiểm tra `Origin` của BFF phải so với origin công khai cố định (`WEB_ORIGIN`, làm ở T-061), không dựa vào `Host` mà Next.js thấy sau Tunnel.
