@@ -63,7 +63,7 @@ POST /api/v1/agent/links  {"shop_id":1020310358,"item_id":24088489429,"post_key"
 | GET | `/admin/overview?days=` | staff+ | KPI tổng |
 | GET | `/admin/users`, PATCH `/admin/users/{id}` | staff (xem), admin (sửa) | Khóa/mở |
 | GET | `/admin/orders?status=&source=` | staff+ | |
-| GET | `/admin/orphans`, POST `/admin/orphans/{order_id}/assign` | staff+ | `{user_id, reason}`, ghi audit |
+| GET | `/admin/orphans`, POST `/admin/orphans/{order_id}/assign` | **admin** (+TOTP; staff không: gán đơn là tạo tiền cho user) | `{user_id, reason}`; gán đúng một lần, cấm tự gán cho mình, user phải đang hoạt động; ví tự ghi nhận ở lần chốt kế tiếp; audit `orders.assign_orphan` |
 | GET | `/admin/withdrawals?status=` | **admin** | Chỉ 4 số cuối tài khoản |
 | POST | `/admin/withdrawals/{id}/approve` / `/reject` `{reason}` / `/fail` `{reason}` | **admin** (staff không) | Từ chối/lỗi hoàn tiền bằng bút toán `refund_hold` mới; trạng thái đổi có điều kiện (không làm hai lần) |
 | GET | `/admin/withdrawals/{id}/payout-account` | **admin** | Giải mã số tài khoản để chuyển khoản (chỉ khi `approved`); ghi audit `payout.view_account` mỗi lần; `Cache-Control: no-store` |

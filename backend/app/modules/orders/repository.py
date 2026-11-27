@@ -101,3 +101,33 @@ def user_orders(conn: Connection, user_id: int, limit: int, offset: int):
 def latest_finished_run(conn: Connection):
     return conn.execute(text("SELECT result, finished_at FROM sync_runs WHERE kind = 'orders' "
                              "AND finished_at IS NOT NULL ORDER BY id DESC LIMIT 1")).mappings().first()
+
+
+def list_orphans(conn: Connection, limit: int, offset: int):
+    """Đơn mồ côi CHƯA ai nhận (staff/admin gán tay được), mới nhất trước."""
+    return conn.execute(text(
+        "SELECT o.id, o.order_sn, o.status, o.commission_micro, o.purchase_time, o.utm_content, oo.reason "
+        "FROM orphan_orders oo JOIN shopee_orders o ON o.id = oo.order_id "
+        "WHERE oo.assigned_to_user IS NULL AND o.user_id IS NULL AND o.post_id IS NULL "
+        "ORDER BY o.id DESC LIMIT :l OFFSET :o"), {"l": limit, "o": offset}).mappings().all()
+
+
+def lock_order(conn: Connection, order_id: int):
+    return conn.execute(text("SELECT id, user_id, post_id FROM shopee_orders WHERE id = :i FOR UPDATE"),
+                        {"i": order_id}).mappings().first()
+
+
+def has_open_orphan(conn: Connection, order_id: int) -> bool:
+    return conn.execute(text("SELECT 1 FROM orphan_orders WHERE order_id = :i AND assigned_to_user IS NULL"),
+                        {"i": order_id}).first() is not None
+
+
+def assign_orphan(conn: Connection, order_id: int, user_id: int, admin_id: int) -> bool:
+    """Gán đơn cho user (chỉ khi còn mồ côi). Dòng orphan_orders được giữ lại làm lịch sử với assigned_to_user/assigned_by."""
+    won = conn.execute(text("UPDATE shopee_orders SET user_id = :u, source_type = 'user', updated_at = now() "
+                            "WHERE id = :i AND user_id IS NULL AND post_id IS NULL RETURNING 1"), {"u": user_id, "i": order_id}).first()
+    if won is None:
+        return False
+    conn.execute(text("UPDATE orphan_orders SET assigned_to_user = :u, assigned_by = :a WHERE order_id = :i"),
+                 {"u": user_id, "a": admin_id, "i": order_id})
+    return True

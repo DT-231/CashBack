@@ -323,6 +323,7 @@ Ghi chú: các mục trên là điều kiện **mở cho người ngoài**. Dùn
   - Given user đã rút trước khi đơn bị thu hồi (bút toán `adjust`) When admin mở dashboard Then thấy tổng và danh sách khoản lỗ (đơn, user, số tiền, thời điểm); không hiện cho staff không có quyền tài chính
 
 ### T-044: Là staff, tôi muốn gán tay đơn mồ côi cho user khi có khiếu nại
+- **Đã làm (2026-11-28, `autopilot/main`)**: backend API admin; quyết định chỉ admin (xem `docs/autopilot/DECISIONS.md`). Giao diện: chưa.
 - Loại: feature · 3 điểm · Must · Sprint 4 · Owner: codex · Phụ thuộc: T-022, T-031
 - Acceptance criteria:
   - Given đơn mồ côi When gán user Then sinh entry pending cho user theo share snapshot

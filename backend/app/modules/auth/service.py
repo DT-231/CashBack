@@ -65,6 +65,12 @@ class AuthService:
                     repository.revoke_all(conn, reused_by)
         raise InvalidRefresh("Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại")
 
+    def find_user(self, user_id: int) -> UserOut | None:
+        """Cho module khác (orders) kiểm tra user có tồn tại và đang hoạt động; không lộ SQL của auth."""
+        with self.engine.connect() as conn:
+            u = repository.find_by_id(conn, user_id)
+        return UserOut(**u) if u and u["status"] == "active" else None
+
     def logout_all(self, user_id: int) -> None:
         with self.engine.begin() as conn:
             repository.delete_all(conn, user_id)
