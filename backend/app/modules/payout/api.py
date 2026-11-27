@@ -7,7 +7,8 @@ from fastapi.responses import JSONResponse, Response
 
 from app.core.clientip import request_ip
 from app.core.ratelimit import enforce_rate_limits
-from app.modules.audit.service import Actor, AuditContext
+from app.modules.audit.deps import admin_audit_context, audit_context  # noqa: F401  (re-export cho contract test)
+from app.modules.audit.service import AuditContext
 from app.modules.auth.api import current_user, require_admin
 from app.modules.auth.schemas import UserOut
 from app.modules.payout.schemas import (AdminWithdrawalOut, BankAccountIn, BankAccountOut, IdemKey, MarkPaidIn,
@@ -21,20 +22,6 @@ admin_router = APIRouter(prefix="/api/v1/admin/withdrawals", tags=["payout-admin
 def _service(request: Request) -> PayoutService:
     st = request.app.state
     return PayoutService(st.settings, st.get_engine())
-
-
-def _actor_role(user: UserOut) -> str:
-    return {"member": "user", "staff": "staff", "admin": "admin"}.get(user.role, "user")
-
-
-def audit_context(request: Request, user: UserOut = Depends(current_user)) -> AuditContext:
-    st = request.app.state
-    return AuditContext(st.settings, Actor(user.id, _actor_role(user)), request_ip(request, st.settings))
-
-
-def admin_audit_context(request: Request, user: UserOut = Depends(require_admin)) -> AuditContext:
-    st = request.app.state
-    return AuditContext(st.settings, Actor(user.id, "admin"), request_ip(request, st.settings))
 
 
 def _limit(request: Request, scope: str, user: UserOut, per_hour: int) -> None:
