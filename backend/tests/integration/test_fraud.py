@@ -61,7 +61,7 @@ def link(pg, uid):
 
 def clicks(pg, link_id, ip, n=1, hours_ago=1):
     with pg.begin() as c:
-        c.execute(text("INSERT INTO clicks(link_id, sub_id, ip_hash, created_at) SELECT :l, 'x', :ip, now() - make_interval(hours => :h) - make_interval(secs => g) "
+        c.execute(text("INSERT INTO clicks(link_id, sub_id, ip_hash, created_at) SELECT :l, 'x', :ip, date_trunc('hour', now()) - make_interval(hours => :h) + interval '10 minutes' + make_interval(secs => g) "
                        "FROM generate_series(1, :n) g"), {"l": link_id, "ip": ip, "h": hours_ago, "n": n})
 
 
