@@ -290,3 +290,29 @@ def test_missing_encryption_key_returns_503_not_a_crash(make, pg):
     uid, h, _, _ = user(client, pg)
     r = client.post("/api/v1/auth/mfa/setup", headers=h)
     assert r.status_code == 503 and r.json()["error"]["code"] == "not_configured"
+
+
+def test_advance_step_is_atomic_and_monotonic(pg):
+    """Chống phát lại ở tầng DB: kể cả khi hai request cùng đọc last_step cũ, chỉ MỘT lần ghi bước thành công."""
+    from app.modules.auth import repository
+    email = f"itest-{uuid.uuid4().hex[:10]}@example.test"
+    with pg.begin() as c:
+        uid = c.execute(text("INSERT INTO users(email, password_hash, status) VALUES (:e, 'x', 'active') RETURNING id"), {"e": email}).scalar_one()
+        assert repository.put_pending_mfa(c, uid, "enc", "k1")
+        assert repository.advance_step(c, uid, 100, enabling=True)                  # kích hoạt
+        assert repository.advance_step(c, uid, 101) is True
+        assert repository.advance_step(c, uid, 101) is False                        # cùng bước: từ chối
+        assert repository.advance_step(c, uid, 100) is False                        # bước cũ hơn: từ chối
+        assert repository.advance_step(c, uid, 102) is True
+        assert repository.advance_step(c, uid, 150, enabling=True) is False         # đã kích hoạt: enabling không áp dụng lại
+        assert c.execute(text("SELECT last_step FROM user_mfa WHERE user_id = :u"), {"u": uid}).scalar_one() == 102
+
+
+def test_verify_before_enabling_is_a_state_error_and_never_issues_tokens(api, pg):
+    client, clock, _ = api
+    uid, h, _, _ = user(client, pg)
+    secret = client.post("/api/v1/auth/mfa/setup", headers=h).json()["secret"]       # chờ kích hoạt, chưa enable
+    clock.advance(seconds=30)
+    r = client.post("/api/v1/auth/mfa/verify", headers=h, json={"code": code(secret, clock)})
+    assert r.status_code == 409 and r.json()["error"]["code"] == "mfa_state" and "access_token" not in r.text
+    assert admin_get(client, h).status_code == 403
