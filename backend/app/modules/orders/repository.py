@@ -122,9 +122,12 @@ def has_open_orphan(conn: Connection, order_id: int) -> bool:
                         {"i": order_id}).first() is not None
 
 
-def assign_orphan(conn: Connection, order_id: int, user_id: int, admin_id: int) -> None:
+def assign_orphan(conn: Connection, order_id: int, user_id: int, admin_id: int) -> bool:
     """Gán đơn cho user (chỉ khi còn mồ côi). Dòng orphan_orders được giữ lại làm lịch sử với assigned_to_user/assigned_by."""
-    conn.execute(text("UPDATE shopee_orders SET user_id = :u, source_type = 'user', updated_at = now() "
-                      "WHERE id = :i AND user_id IS NULL AND post_id IS NULL"), {"u": user_id, "i": order_id})
+    won = conn.execute(text("UPDATE shopee_orders SET user_id = :u, source_type = 'user', updated_at = now() "
+                            "WHERE id = :i AND user_id IS NULL AND post_id IS NULL RETURNING 1"), {"u": user_id, "i": order_id}).first()
+    if won is None:
+        return False
     conn.execute(text("UPDATE orphan_orders SET assigned_to_user = :u, assigned_by = :a WHERE order_id = :i"),
                  {"u": user_id, "a": admin_id, "i": order_id})
+    return True

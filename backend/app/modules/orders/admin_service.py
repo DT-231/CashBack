@@ -40,6 +40,7 @@ class OrphanAdmin:
                 raise OrderNotFound("Không có đơn này")
             if row["user_id"] is not None or row["post_id"] is not None or not repository.has_open_orphan(conn, order_id):
                 raise NotAnOrphan("Đơn này không còn là đơn mồ côi")
-            repository.assign_orphan(conn, order_id, user_id, audit.actor.id)
+            if not repository.assign_orphan(conn, order_id, user_id, audit.actor.id):     # lớp thứ hai (ngoài khóa dòng): UPDATE có điều kiện
+                raise NotAnOrphan("Đơn này không còn là đơn mồ côi")
             audit_service.record(conn, audit.settings, audit.actor, "orders.assign_orphan", target_type="order", target_id=order_id,
                                  detail={"user_id": user_id, "reason": reason}, ip=audit.ip)
