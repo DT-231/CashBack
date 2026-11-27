@@ -2,7 +2,7 @@
  * NƠI DUY NHẤT trình duyệt gọi backend (qua BFF cùng origin: cookie HttpOnly, JS không thấy token).
  * Component KHÔNG được gọi `fetch` trực tiếp. Xem docs/adr/0005-web-luu-token-bff-httponly.md.
  */
-import type { ApiErrorBody, EntryOut, LinkOut, UserLinkOut, UserOut, WalletOut } from "./types";
+import type { ApiErrorBody, EntryOut, LinkOut, OrderOut, UserLinkOut, UserOut, WalletOut } from "./types";
 
 export class ApiError extends Error {
   constructor(public status: number, public code: string, message: string, public requestId: string | null) {
@@ -55,6 +55,7 @@ export const api = {
   createLink: (url: string) => request<LinkOut>("POST", "/bff/api/links", { url }),
   myLinks: (p: { limit?: number; offset?: number } = {}) => request<UserLinkOut[]>("GET", `/bff/api/me/links${qs(p)}`),
   wallet: () => request<WalletOut>("GET", "/bff/api/me/wallet"),
+  myOrders: (p: { limit?: number; offset?: number } = {}) => request<OrderOut[]>("GET", `/bff/api/me/orders${qs(p)}`),
   walletEntries: (p: { limit?: number; offset?: number } = {}) =>
     request<EntryOut[]>("GET", `/bff/api/me/wallet/entries${qs(p)}`),
 };
