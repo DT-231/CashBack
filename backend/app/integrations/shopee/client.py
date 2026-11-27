@@ -129,15 +129,21 @@ class ShopeeClient:
             try:
                 r = self._session(self._search_headers(keyword), "search").get(self.s.shopee_search_url, params=params,
                                                                      timeout=20)
-                if r.status_code in (403, 429):
-                    last_err = f"HTTP {r.status_code} (cookie/IP bị chặn — cần cookie mới hoặc proxy)"
-                    self._sleep(2 + attempt * 2)
+                if r.status_code == 403:
+                    # Retry 403 vô nghĩa (cùng cookie/IP -> cùng kết quả): thoát ngay để rơi sang engine kế
+                    last_err = "HTTP 403 (cookie/IP bị chặn — cần cookie mới hoặc proxy)"
+                    break
+                if r.status_code == 429:
+                    last_err = "HTTP 429 (bị giới hạn tốc độ — thử lại sau)"
+                    if attempt < 2:
+                        self._sleep(self._retry_after(r, 2 + attempt * 2))
                     continue
                 data = r.json()
                 block = data.get("error") or data.get("error_msg")
                 if block not in (None, 0, ""):
                     last_err = f"Shopee trả lỗi: {block}"
-                    self._sleep(1.5)
+                    if attempt < 2:
+                        self._sleep(1.5)
                     continue
                 items = []
                 for entry in (data.get("data") or {}).get("items") or []:
@@ -149,8 +155,17 @@ class ShopeeClient:
                 return {"ok": bool(items), "items": items, "error": None if items else last_err, "source": "shopee"}
             except (requests.RequestException, ValueError, AttributeError) as e:
                 last_err = f"{type(e).__name__}: {e}"
-                self._sleep(1.5 + attempt + random.random())
+                if attempt < 2:   # không ngủ sau lần thử cuối
+                    self._sleep(1.5 + attempt + random.random())
         return {"ok": False, "items": [], "error": last_err, "source": "shopee"}
+
+    @staticmethod
+    def _retry_after(r, default: float) -> float:
+        """Đọc Retry-After (giây) nếu có, tối đa 5 giây."""
+        try:
+            return max(0.0, min(float(r.headers.get("Retry-After")), 5.0))
+        except (TypeError, ValueError):
+            return default
 
     # ---------- dashboard affiliate ----------
     def _get(self, path: str, params: dict) -> dict:

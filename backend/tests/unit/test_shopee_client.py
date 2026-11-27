@@ -50,11 +50,11 @@ def test_normalize_heuristic_misreads_large_plain_price():
     assert ShopeeClient._normalize_item({"itemid": 1, "shopid": 2, "price": 15_000_001})["price"] == 150
 
 
-def test_search_403_retries_then_fails(monkeypatch):
+def test_search_403_fails_fast_without_retry(monkeypatch):
     calls = []
     patch_get(monkeypatch, lambda *a, **k: calls.append(1) or Resp(403))
     r = make().search("x")
-    assert not r["ok"] and "403" in r["error"] and len(calls) == 3
+    assert not r["ok"] and "403" in r["error"] and len(calls) == 1
 
 
 def test_search_parses_items_and_clamps_limit(monkeypatch):
@@ -101,7 +101,7 @@ def test_search_cache_only_stores_successes(monkeypatch):
     patch_get(monkeypatch, lambda *a, **k: n.append(1) or Resp(403))
     c = make(ttl=60)
     c.search("y"); c.search("y")
-    assert len(n) == 6        # 3 lần thử × 2 lần gọi, lỗi không bị cache
+    assert len(n) == 2        # 403 thoát ngay (1 lần/gọi), lỗi không bị cache
 
 
 def test_search_sends_cookie_and_secret_headers_but_error_hides_them(monkeypatch):
@@ -360,3 +360,48 @@ def test_search_and_dashboard_headers_do_not_leak(monkeypatch):
     assert s_search is not s_dash
     assert s_search.headers["Cookie"] == "WEB=1" and s_dash.headers["cookie"] == "AFF=1"
     assert s_search.headers["Referer"] != s_dash.headers["referer"]
+
+
+# ---------- P1-5: retry ----------
+def sleeps(c):
+    out = []
+    c._sleep = out.append
+    return c, out
+
+
+def test_403_is_one_request_and_no_sleep(monkeypatch):
+    n = []
+    patch_get(monkeypatch, lambda *a, **k: n.append(1) or Resp(403))
+    c, s = sleeps(make())
+    assert not c.search("x")["ok"] and len(n) == 1 and s == []
+
+
+def test_429_retries_and_honors_retry_after_capped(monkeypatch):
+    ok = Resp(200, {"data": {"items": [{"itemid": 1, "shopid": 2, "name": "A"}]}})
+    seq = [Resp(429, headers={"Retry-After": "30"}), ok]
+    n = []
+    patch_get(monkeypatch, lambda *a, **k: n.append(1) or seq.pop(0))
+    c, s = sleeps(make())
+    assert c.search("x")["ok"] and len(n) == 2 and s == [5.0]       # 30s bị chặn ở 5s
+
+
+def test_429_without_header_uses_default_backoff_and_no_final_sleep(monkeypatch):
+    patch_get(monkeypatch, lambda *a, **k: Resp(429))
+    c, s = sleeps(make())
+    r = c.search("x")
+    assert not r["ok"] and "429" in r["error"] and s == [2, 4]       # 3 lần thử, chỉ ngủ giữa các lần
+
+
+def test_200_is_single_request(monkeypatch):
+    n = []
+    patch_get(monkeypatch, lambda *a, **k: n.append(1) or Resp(200, {"data": {"items": [{"itemid": 1, "shopid": 2}]}}))
+    c, s = sleeps(make())
+    assert c.search("x")["ok"] and len(n) == 1 and s == []
+
+
+def test_network_error_retries_without_final_sleep(monkeypatch):
+    def boom(*a, **k):
+        raise __import__("requests").ConnectionError("down")
+    patch_get(monkeypatch, boom)
+    c, s = sleeps(make())
+    assert "ConnectionError" in c.search("x")["error"] and len(s) == 2
