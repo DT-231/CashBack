@@ -1,6 +1,6 @@
 import csv
 
-import feed_import as fi
+from app.modules.products import feed_import as fi
 
 
 def write(tmp_path, text, enc="utf-8-sig", name="src.csv"):
