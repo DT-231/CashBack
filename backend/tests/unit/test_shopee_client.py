@@ -306,3 +306,57 @@ def test_paged_short_first_page_stops_immediately(monkeypatch):
     c = make()
     asked = _pages(monkeypatch, c, [[{"i": 1}] * 40, [{"i": 1}] * 100])
     assert len(c._paged("/x", {})) == 40 and asked == [1]
+
+
+# ---------- P1-4: session dùng lại theo luồng ----------
+def test_session_is_reused_per_thread_and_kind():
+    import threading
+    c = make()
+    a, b = c._session({"X": "1"}), c._session({"Y": "2"})
+    assert a is b and a.headers["X"] == "1" and a.headers["Y"] == "2"    # chỉ update, không reset
+    assert c._session({}, "dash") is not a and c._session({}, "check") is not a
+    other = []
+    t = threading.Thread(target=lambda: other.append(c._session({})))
+    t.start(); t.join()
+    assert other[0] is not a
+
+
+def test_session_proxy_applied_once():
+    c = make(shopee_proxy="http://p:1")
+    assert c._session({}).proxies == {"http": "http://p:1", "https": "http://p:1"}
+
+
+def test_session_keeps_set_cookie_between_requests():
+    import http.server
+    import threading
+    seen = []
+
+    class H(http.server.BaseHTTPRequestHandler):
+        def do_GET(self):
+            seen.append(self.headers.get("Cookie"))
+            self.send_response(200)
+            self.send_header("Set-Cookie", "SPC_EC=abc; Path=/")
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+
+        def log_message(self, *a):
+            pass
+    srv = http.server.ThreadingHTTPServer(("127.0.0.1", 0), H)
+    threading.Thread(target=lambda: srv.serve_forever(poll_interval=0.01), daemon=True).start()
+    try:
+        c = make()
+        url = f"http://127.0.0.1:{srv.server_address[1]}/"
+        c._session({}).get(url)
+        c._session({}).get(url)
+    finally:
+        srv.shutdown(); srv.server_close()
+    assert seen == [None, "SPC_EC=abc"]
+
+
+def test_search_and_dashboard_headers_do_not_leak(monkeypatch):
+    c = make(cookie="AFF=1", web="WEB=1")
+    s_search = c._session(c._search_headers("x"), "search")
+    s_dash = c._session({"cookie": "AFF=1", "referer": "https://affiliate.shopee.vn/dashboard"}, "dash")
+    assert s_search is not s_dash
+    assert s_search.headers["Cookie"] == "WEB=1" and s_dash.headers["cookie"] == "AFF=1"
+    assert s_search.headers["Referer"] != s_dash.headers["referer"]

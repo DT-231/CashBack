@@ -12,6 +12,7 @@ MOCK=1 dùng FakeShopeeClient (fake.py) với fixture ẩn danh, không đụng 
 from __future__ import annotations
 
 import random
+import threading
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
@@ -51,16 +52,26 @@ class ShopeeClient:
         self.s = settings
         self._sleep = sleep
         self._cache = TTLCache(settings.shopee_cache_ttl)
+        self._local = threading.local()   # mỗi luồng giữ session riêng (requests.Session không an toàn đa luồng)
 
     # ---------- chung ----------
     def _cookie(self) -> str:
         return self.s.shopee_cookie.get_secret_value().strip()
 
-    def _session(self, headers: dict) -> requests.Session:
-        sess = requests.Session()
-        sess.headers.update(headers)
-        if self.s.shopee_proxy.strip():
-            sess.proxies = {"http": self.s.shopee_proxy.strip(), "https": self.s.shopee_proxy.strip()}
+    def _session(self, headers: dict, kind: str = "search") -> requests.Session:
+        """Session dùng lại theo (luồng, kind) để giữ Set-Cookie và kết nối TLS.
+
+        Tách riêng search (shopee.vn), dash (affiliate.shopee.vn) và check (link người dùng) để header
+        Cookie/Referer của host này không dính sang host kia.
+        """
+        sess = getattr(self._local, kind, None)
+        if sess is None:
+            sess = requests.Session()
+            proxy = self.s.shopee_proxy.strip()
+            if proxy:
+                sess.proxies = {"http": proxy, "https": proxy}
+            setattr(self._local, kind, sess)
+        sess.headers.update(headers)   # chỉ cập nhật, không reset
         return sess
 
     @property
@@ -116,7 +127,7 @@ class ShopeeClient:
         last_err = None
         for attempt in range(3):
             try:
-                r = self._session(self._search_headers(keyword)).get(self.s.shopee_search_url, params=params,
+                r = self._session(self._search_headers(keyword), "search").get(self.s.shopee_search_url, params=params,
                                                                      timeout=20)
                 if r.status_code in (403, 429):
                     last_err = f"HTTP {r.status_code} (cookie/IP bị chặn — cần cookie mới hoặc proxy)"
@@ -153,7 +164,7 @@ class ShopeeClient:
         sess = self._session({
             "accept": "application/json, text/plain, */*", "accept-language": "vi-VN,vi;q=0.9,en;q=0.8",
             "affiliate-program-type": "1", "referer": f"{AFFILIATE_BASE}/dashboard",
-            "user-agent": self._ua, "cookie": self._cookie()})
+            "user-agent": self._ua, "cookie": self._cookie()}, "dash")
         for attempt in (1, 2):
             try:
                 r = sess.get(f"{AFFILIATE_BASE}{path}", params=params, timeout=25)
@@ -216,7 +227,7 @@ class ShopeeClient:
         """
         from urllib.parse import parse_qs, urljoin, urlparse
         sess = self._session({"User-Agent": self._ua, "Accept-Language": "vi-VN,vi;q=0.9,en;q=0.8",
-                              "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"})
+                              "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"}, "check")
         url, hops = link, []
         first_status = first_location = final_status = None
         target, tracked = link, False
