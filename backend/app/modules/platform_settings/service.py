@@ -10,6 +10,7 @@ from collections.abc import Callable
 from sqlalchemy import Engine
 from sqlalchemy.exc import IntegrityError
 
+from app.modules.audit import service as audit
 from app.modules.platform_settings import repository
 from app.modules.platform_settings.errors import InvalidSetting
 
@@ -49,8 +50,10 @@ class PlatformSettings:
             return value
         return at
 
-    def set_int(self, key: str, value: int, effective_from: datetime | None = None) -> None:
-        """Chỉ nối thêm bản ghi mới có hiệu lực từ bây giờ trở đi; không được sửa quá khứ hay ghi đè một mốc đã có."""
+    def set_int(self, key: str, value: int, effective_from: datetime | None = None, *,
+                audit_ctx: audit.AuditContext | None = None) -> None:
+        """Chỉ nối thêm bản ghi mới có hiệu lực từ bây giờ trở đi; không được sửa quá khứ hay ghi đè một mốc đã có.
+        Thao tác admin (endpoint) PHẢI truyền `audit_ctx`: log `settings.set` được ghi trong cùng transaction (lỗi log thì không đổi cấu hình)."""
         if key not in DEFAULTS:
             raise InvalidSetting(f"không có cấu hình {key}")
         if not _valid(key, value):
@@ -63,5 +66,8 @@ class PlatformSettings:
         try:
             with self.engine.begin() as conn:
                 repository.put(conn, key, json.dumps(value), eff)
+                if audit_ctx is not None:
+                    audit.record(conn, audit_ctx.settings, audit_ctx.actor, "settings.set", target_type="setting", target_id=key,
+                                 detail={"key": key, "value": value, "effective_from": eff.isoformat()}, ip=audit_ctx.ip)
         except IntegrityError:
             raise InvalidSetting("đã có cấu hình tại đúng thời điểm này; chọn mốc khác") from None

@@ -200,9 +200,13 @@ erDiagram
   audit_logs {
     bigint id PK
     bigint actor_id
+    text actor_role
     text action
-    text target
+    text target_type
+    text target_id
     jsonb detail
+    text ip_hash
+    text request_id
     timestamptz at
   }
   rate_limits {
@@ -230,7 +234,7 @@ erDiagram
 | `shopee_sessions` | Cookie mã hóa, trạng thái sức khỏe. Chỉ admin cập nhật; không có API đọc lại giá trị. |
 | `settings` | Cấu hình có `effective_from` (tỷ lệ 6000bp, ngưỡng rút, `hold_days`). Đơn lưu snapshot `share_bp` ở `wallet_entries`. |
 | `sync_runs` | Lịch sử đồng bộ, dùng để biết "đã đồng bộ tới đâu" trước khi chuyển tiền. |
-| `fraud_flags`, `claims`, `audit_logs`, `rate_limits`, `agent_keys` | Theo tên. `audit_logs` ghi mọi thao tác admin/staff. |
+| `fraud_flags`, `claims`, `audit_logs`, `rate_limits`, `agent_keys` | Theo tên. `audit_logs` ghi thao tác admin/staff và sự kiện tiền/tài khoản: ai (`actor_id`+`actor_role`), hành động (`nhóm.hành_động`), đối tượng (`target_type`+`target_id`), thời điểm, `ip_hash` (HMAC, không lưu IP thô). Chỉ thêm (trigger chặn sửa/xóa); `detail` đã lọc, không chứa mật khẩu/token/cookie/số tài khoản. Xem `docs/runbooks/audit-logs.md`. |
 
 ## 4. Quy tắc tiền
 - Từ Shopee: số nguyên ×1e5 ("micro"). Từ micro sang đồng chỉ khi tính phần user, và **luôn làm tròn xuống**: `user_vnd = floor(commission_micro × share_bp / 10000 / 100000)`. Phần dư thuộc admin.

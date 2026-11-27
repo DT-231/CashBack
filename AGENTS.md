@@ -37,7 +37,7 @@ make cov                  # coverage backend/app
 ## Luật phụ thuộc (CI ép: `backend/tests/contract/test_architecture.py`)
 1. `api → service → repository`, không đi ngược. Module A chỉ gọi `service` công khai của B, không import `repository` của B.
 2. `core/` không import `modules/` hay `integrations/`.
-3. **Chỉ `integrations/shopee` gọi Shopee** (không `requests/httpx/playwright` hay host shopee ở nơi khác). **Chỉ `modules/wallet` ghi `wallets`/`wallet_entries`.**
+3. **Chỉ `integrations/shopee` gọi Shopee** (không `requests/httpx/playwright` hay host shopee ở nơi khác). **Chỉ `modules/wallet` ghi `wallets`/`wallet_entries`; chỉ `modules/audit` ghi `audit_logs`.** Thao tác admin/tiền phải ghi audit trong CÙNG transaction (`audit.record(conn, …)`), không bao giờ đưa mật khẩu/token/số tài khoản vào `detail`.
 4. **`os.environ` chỉ ở `core/config.py`.** Biến mới: thêm vào `Settings` và `.env.example`.
 
 ## Quy ước sub_id v1 (`docs/07-du-lieu.md`)

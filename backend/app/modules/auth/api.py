@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, Request
 
 from app.core.clientip import request_ip
 from app.core.errors import Unauthorized
+from app.modules.audit.service import Actor, record_best_effort
 from app.core.ratelimit import enforce_ip_limit, enforce_rate_limits
 from app.modules.auth.schemas import LoginIn, RefreshIn, RegisterIn, TokenOut, UserOut
 from app.modules.auth.service import AuthService
@@ -32,7 +33,11 @@ def current_user(request: Request) -> UserOut:
 @router.post("/register", status_code=201, response_model=UserOut)
 def register(body: RegisterIn, request: Request):
     enforce_ip_limit(request, "register_ip", request.app.state.settings.rl_register_per_hour, 3600)
-    return _service(request).register(body.email, body.password)
+    user = _service(request).register(body.email, body.password)
+    st = request.app.state
+    record_best_effort(st.get_engine(), st.settings, Actor(user.id, "user"), "auth.register",
+                       target_type="user", target_id=user.id, ip=request_ip(request, st.settings))
+    return user
 
 
 @router.post("/login", response_model=TokenOut)
@@ -54,6 +59,9 @@ def refresh(body: RefreshIn, request: Request):
 @router.post("/logout", status_code=204)
 def logout(request: Request, user: UserOut = Depends(current_user)):
     _service(request).logout_all(user.id)
+    st = request.app.state
+    record_best_effort(st.get_engine(), st.settings, Actor(user.id, user.role if user.role in ("user", "staff", "admin") else "user"),
+                       "auth.logout", target_type="user", target_id=user.id, ip=request_ip(request, st.settings))
 
 
 @router.get("/me", response_model=UserOut)

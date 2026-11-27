@@ -43,6 +43,12 @@ def test_up_down_up(scratch_url):
     alembic(scratch_url, "upgrade", "head")
     assert "clicks_sub_id_idx" in names(scratch_url, "index") and "wallets" in names(scratch_url, "table")
     assert "refresh_tokens" in names(scratch_url, "table")
+    cols = lambda: {r[0] for r in create_engine(scratch_url).connect().execute(text(  # noqa: E731
+        "SELECT column_name FROM information_schema.columns WHERE table_name='audit_logs'"))}
+    assert {"actor_role", "target_type", "target_id", "ip_hash", "request_id"} <= cols() and "target" not in cols()
+    alembic(scratch_url, "downgrade", "0003")
+    assert "target" in cols() and "ip_hash" not in cols()
+    alembic(scratch_url, "upgrade", "head")
     alembic(scratch_url, "downgrade", "0002")
     assert "refresh_tokens" not in names(scratch_url, "table")
     alembic(scratch_url, "downgrade", "0001")

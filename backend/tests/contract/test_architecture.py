@@ -43,6 +43,12 @@ def test_core_does_not_import_modules_or_integrations():
     assert not bad, bad
 
 
+def test_only_audit_module_writes_audit_logs():
+    pat = re.compile(r"(?is)(insert\s+into|update|delete\s+from)\s+audit_logs\b")
+    bad = [rel(p) for p in FILES if not rel(p).startswith("modules/audit/") and pat.search(p.read_text(encoding="utf-8"))]
+    assert not bad, f"chỉ modules/audit được ghi audit_logs: {bad}"
+
+
 def test_only_wallet_module_writes_wallet_tables():
     pat = re.compile(r"(?is)(insert\s+into|update|delete\s+from)\s+(wallets|wallet_entries)\b")
     bad = [rel(p) for p in FILES if not rel(p).startswith("modules/wallet/")
