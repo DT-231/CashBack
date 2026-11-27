@@ -56,6 +56,24 @@ def base_url(db, monkeypatch):
 
 
 @pytest.fixture
+def make_settings():
+    """Settings cô lập: không đọc .env, MOCK bật, khóa sub_id đủ dài."""
+    def make(**kw):
+        from app.core.config import Settings
+        base = dict(mock=True, shopee_aff_id="17399999999", subid_secret="s" * 32)
+        return Settings(_env_file=None, **{**base, **kw})
+    return make
+
+
+@pytest.fixture
+def client(make_settings):
+    """FastAPI TestClient cho app mới (không DB). 500 trả về như response thay vì ném lỗi."""
+    from fastapi.testclient import TestClient
+    from app.main_api import create_app
+    return TestClient(create_app(make_settings()), raise_server_exceptions=False)
+
+
+@pytest.fixture
 def feed_file(tmp_path, monkeypatch):
     f = tmp_path / "feed.csv"
     f.write_text(
