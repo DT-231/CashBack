@@ -78,7 +78,9 @@ def encode(type_: str, owner_id: int, ref_id: int, secret) -> str:
 
 
 def decode(utm_content: str | None, secret) -> Decoded:
-    """Không bao giờ ném lỗi vì dữ liệu từ Shopee; trả status để caller đưa vào đơn mồ côi."""
+    """Không bao giờ ném lỗi vì dữ liệu từ Shopee; trả status để caller đưa vào đơn mồ côi.
+    `secret` là một khóa HOẶC danh sách khóa (khóa hiện hành trước, rồi khóa cũ sau khi đổi khóa, T-018). Chữ ký chỉ 3 ký tự nên
+    mỗi khóa thêm làm tăng xác suất khớp nhầm ~1/46656: tối đa MAX_PREVIOUS_KEYS khóa cũ (config) và caller vẫn phải kiểm sở hữu."""
     raw = (utm_content or "").strip()
     if raw.strip("-") == "":
         return Decoded("empty", reason="không có sub_id")
@@ -92,6 +94,8 @@ def decode(utm_content: str | None, secret) -> Decoded:
         return Decoded("invalid", reason="ký tự hoặc s5 sai")
     if not (1 <= len(s2) <= MAX_SLOT and 1 <= len(s3) <= MAX_SLOT and len(s4) == SIG_LEN):
         return Decoded("invalid", reason="độ dài slot sai")
-    if not hmac.compare_digest(_sign(secret, f"{s1}-{s2}-{s3}"), s4):
+    keys = secret if isinstance(secret, (list, tuple)) else (secret,)
+    payload = f"{s1}-{s2}-{s3}"
+    if not any([hmac.compare_digest(_sign(k, payload), s4) for k in keys]):      # không thoát sớm: thời gian không lộ khóa nào khớp
         return Decoded("invalid", reason="chữ ký sai")
     return Decoded("ok", type=s1[1], kind=TYPES[s1[1]], owner=int(s2, 36), ref=int(s3, 36))

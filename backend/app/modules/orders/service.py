@@ -54,9 +54,7 @@ class OrderSync:
         days = self.s.sync_days if days is None else days
         if not 1 <= days <= 366:
             raise ConfigError("days phải trong khoảng 1..366")
-        secret = self.s.subid_secret.get_secret_value()
-        if len(secret.encode()) < 16:
-            raise ConfigError("SUBID_SECRET phải có ít nhất 16 byte")
+        secret = self.s.subid_keys()          # (khóa hiện hành, *khóa cũ); ConfigError nếu thiếu/ngắn/trùng
         lock = self.engine.connect()
         try:
             if not repository.try_lock(lock):
