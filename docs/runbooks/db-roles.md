@@ -11,6 +11,8 @@
 | Chủ sở hữu (ví dụ `cashback_owner`) | `alembic upgrade`, bảo trì thủ công | Sở hữu bảng. KHÔNG đặt vào `DATABASE_URL` của ứng dụng |
 | `cashback_app` | API và worker | `SELECT/INSERT/UPDATE` thường; `DELETE` chỉ trên `rate_limits, refresh_tokens, orphan_orders, shopee_order_items`; **không** `TRUNCATE`; **không** sửa/xóa `wallet_entries` và `audit_logs`; không sở hữu bảng nên không tắt được trigger |
 
+**Quy tắc:** migration (`alembic upgrade`) chạy bằng role **chủ bảng**; API chạy bằng `cashback_app`. Khi `WITHDRAWALS_ENABLED=1`, API **từ chối khởi động** nếu user DB hiện tại là superuser, là chủ bảng `audit_logs`/`wallet_entries`, hoặc kế thừa quyền của chủ bảng (kiểm bằng truy vấn `pg_roles`, `pg_tables`, `pg_has_role`, không đoán theo tên; `core/db.py:assert_least_privilege`). Nghĩa là với `DATABASE_URL` của dev (superuser `cashback`) thì không bật được rút tiền; muốn thử rút tiền ở máy dev phải tạo `cashback_app` rồi trỏ `DATABASE_URL` của API vào đó (migration vẫn dùng URL chủ bảng).
+
 Tạo role: `infra/db/app-role.sql` (dùng biến `app_role`, `app_password`). Migration `0005` còn thu hồi `UPDATE, DELETE, TRUNCATE` trên hai bảng nếu role tên `cashback_app` đã tồn tại lúc migrate (role tên khác: chạy script trên). Có test (`test_db_roles.py`) dựng role tạm từ chính script này và kiểm: UPDATE/DELETE/TRUNCATE `audit_logs` và `wallet_entries` bị từ chối, không `DISABLE TRIGGER` được, vẫn INSERT/SELECT bình thường.
 
 Khi thêm bảng mới ở migration: chủ sở hữu tạo bảng, rồi `GRANT` quyền tối thiểu cho `cashback_app` trong cùng migration (mặc định ứng dụng không có quyền gì trên bảng mới).
