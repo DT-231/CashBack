@@ -50,31 +50,5 @@
         "url"
       ]
     }
-  },
-  {
-    "name": "shopee_click_stats",
-    "description": "Xem link nào có bao nhiêu click trong N ngày gần đây. Dùng để biết bài nào thực sự kéo người vào mua.",
-    "parameters": {
-      "type": "object",
-      "properties": {
-        "days": {
-          "type": "integer",
-          "description": "Số ngày muốn xem, mặc định 7"
-        }
-      }
-    }
-  },
-  {
-    "name": "shopee_revenue",
-    "description": "Số liệu THẬT Shopee ghi nhận trong N ngày: tổng click, đơn, hoa hồng, và hiệu quả từng sub_id (click/đơn/hoa hồng). Dùng để quyết định nên đăng tiếp loại sản phẩm/kênh nào.",
-    "parameters": {
-      "type": "object",
-      "properties": {
-        "days": {
-          "type": "integer",
-          "description": "Số ngày muốn xem, mặc định 7"
-        }
-      }
-    }
   }
 ]

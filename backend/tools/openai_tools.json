@@ -54,39 +54,6 @@
           ]
         }
       }
-    },
-    {
-      "type": "function",
-      "function": {
-        "name": "shopee_click_stats",
-        "description": "Thống kê click theo từng link trong N ngày.",
-        "parameters": {
-          "type": "object",
-          "properties": {
-            "days": {
-              "type": "integer"
-            }
-          },
-          "required": []
-        }
-      }
-    },
-    {
-      "type": "function",
-      "function": {
-        "name": "shopee_revenue",
-        "description": "Số liệu THẬT Shopee ghi nhận trong N ngày: tổng click, đơn, hoa hồng, hiệu quả từng sub_id, top sản phẩm ra tiền.",
-        "parameters": {
-          "type": "object",
-          "properties": {
-            "days": {
-              "type": "integer",
-              "description": "Số ngày, mặc định 7"
-            }
-          },
-          "required": []
-        }
-      }
     }
   ]
 }

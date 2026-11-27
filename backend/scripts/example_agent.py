@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """Ví dụ: AI của bạn gọi tool này thế nào (OpenAI-compatible function calling).
 
-Chạy server trước:  python3 server.py --port 8080
-Rồi:                python3 example_agent.py "tìm cho tao 3 nồi chiên dưới 800k"
+Chạy server trước:  MOCK=1 python3 -m app.main_api      (trong thư mục backend/)
+Rồi:                python3 backend/scripts/example_agent.py "tìm cho tao 3 nồi chiên dưới 800k"
+Nếu đặt AGENT_API_KEY ở server, đặt cùng biến đó khi chạy ví dụ này.
 
 Phần quan trọng không phải LLM — mà là mapping tool_call -> HTTP request.
-Copy đúng 3 nhánh dưới đây vào agent của bạn là xong.
+Copy đúng 2 nhánh dưới đây vào agent của bạn là xong.
 """
 import os
 import sys
@@ -13,29 +14,25 @@ import sys
 import requests
 
 BASE = os.environ.get("BASE", "http://127.0.0.1:8080").rstrip("/")
+KEY = os.environ.get("AGENT_API_KEY", "")
+HEADERS = {"Authorization": f"Bearer {KEY}"} if KEY else {}
 
 
 def shopee_find_links(keyword, limit=10, sort="relevancy", sub=""):
     r = requests.get(f"{BASE}/api/search",
                      params={"keyword": keyword, "limit": limit, "sort": sort, "sub": sub},
-                     timeout=90)
+                     headers=HEADERS, timeout=90)
     return r.json()
 
 
 def shopee_link_from_url(url, sub="api"):
-    r = requests.post(f"{BASE}/api/link", json={"url": url, "sub": sub}, timeout=30)
-    return r.json()
-
-
-def shopee_click_stats(days=7):
-    r = requests.get(f"{BASE}/api/stats", params={"days": days}, timeout=10)
+    r = requests.post(f"{BASE}/api/link", json={"url": url, "sub": sub}, headers=HEADERS, timeout=30)
     return r.json()
 
 
 DISPATCH = {
     "shopee_find_links": lambda a: shopee_find_links(**a),
     "shopee_link_from_url": lambda a: shopee_link_from_url(**a),
-    "shopee_click_stats": lambda a: shopee_click_stats(**a),
 }
 
 

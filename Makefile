@@ -11,10 +11,8 @@ venv:
 	python3 -m venv $(VENV)
 	$(PY) -m pip install -q -e "backend[dev]"
 
-# pytest toàn bộ; test_make_link_regression.py (gốc) kiểm tra lớp tương thích affiliate.py, xóa ở bước 10.
 test:
 	$(PY) -m pytest backend/tests
-	$(PY) test_make_link_regression.py
 
 # Cần Postgres: docker compose -f infra/docker-compose.yml up -d db migrate seed
 db-up:
@@ -30,6 +28,5 @@ fmt:
 	$(VENV)/bin/ruff format --config backend/pyproject.toml --check . || true
 
 cov:
-	$(VENV)/bin/coverage run --source=. test_make_link_regression.py
-	$(VENV)/bin/coverage run -a --source=. -m pytest backend/tests
-	$(VENV)/bin/coverage report --omit='test_*,*/tests/*'
+	$(VENV)/bin/coverage run --source=backend/app -m pytest backend/tests
+	$(VENV)/bin/coverage report
