@@ -13,7 +13,7 @@ from fastapi.responses import JSONResponse
 
 from app.modules.agent_auth.api import require_agent_if_configured
 from app.modules.links import service as links
-from app.modules.links.affiliate_link import LinkConfig, LinkError, LinkInputError, link_for_item, parse_product_url
+from app.modules.links.affiliate_link import LinkConfig, LinkError, LinkInputError, link_for_item, normalize_sub_id, parse_product_url
 
 router = APIRouter(tags=["legacy"])
 guard = [Depends(require_agent_if_configured)]   # bắt buộc khóa khi đã cấu hình / lắng nghe ngoài localhost
@@ -40,19 +40,37 @@ def guide():
                           "GET /api/v1/agent/*": "Tool API mới (Bearer key)"}}
 
 
+ENGINES = ("auto", "feed", "api", "browser")
+SORTS = ("relevancy", "sales")
+
+
 @router.get("/api/search", dependencies=guard)
 def search(request: Request):
     q = request.query_params
-    keyword = (q.get("keyword") or "").strip()
+    raw_keyword = q.get("keyword") or ""
+    if "\r" in raw_keyword or "\n" in raw_keyword:   # keyword đi vào header Referer: chặn header injection
+        return _err("keyword không được chứa xuống dòng", 400)
+    keyword = raw_keyword.strip()
     if not keyword:
         return _err("thiếu keyword", 400)
+    if len(keyword) > 200:
+        return _err("keyword tối đa 200 ký tự", 400)
     try:
         limit = int(q.get("limit") or "10")
     except ValueError:
         return _err("limit phải là số nguyên", 400)
+    limit = max(1, min(limit, 60))
     sort = q.get("sort") or "relevancy"
-    sub = (q.get("sub") or "").strip()
+    if sort not in SORTS:
+        return _err("sort chỉ nhận: " + "|".join(SORTS), 400)
     engine = (q.get("engine") or "auto").strip().lower()
+    if engine not in ENGINES:
+        return _err("engine chỉ nhận: " + "|".join(ENGINES), 400)
+    sub = (q.get("sub") or "").strip()
+    try:
+        normalize_sub_id(f"{sub or 'api'}-{limit}")   # sub + số thứ tự phải vẫn ≤5 slot hợp lệ
+    except LinkInputError as e:
+        return _err(str(e), 400)
 
     res = request.app.state.search.search(keyword, limit, sort, engine)
     items = links.enrich_items(request.app.state.settings, res["items"], sub)
