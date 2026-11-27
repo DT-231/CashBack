@@ -45,7 +45,7 @@ Nguồn dữ liệu máy đọc: `backlog/issues.csv` (cùng nội dung).
   - Given file backup When restore sang DB trống Then dữ liệu khớp
   - Given backup lỗi When job Then cảnh báo
 
-### T-061: Là PO, tôi muốn deploy web lên Cloudflare Pages và backend qua Tunnel
+### T-061: Là PO, tôi muốn chạy web (Next.js) và backend ở máy nhà qua chung một Cloudflare Tunnel
 - Loại: feature · 5 điểm · Must · Sprint 6 · Owner: claude · Phụ thuộc: T-002, T-012
 - Acceptance criteria:
   - Given tunnel When truy cập từ Internet Then chỉ route cho phép được expose
@@ -124,6 +124,23 @@ Nguồn dữ liệu máy đọc: `backlog/issues.csv` (cùng nội dung).
   - Given > N yêu cầu/phút từ 1 IP When gọi đăng ký Then 429
   - Given thao tác admin When thực hiện Then có dòng audit_logs (ai, gì, lúc nào)
   - Given lưu IP When ghi Then chỉ lưu ip_hash HMAC
+
+### T-016: Là hệ thống, tôi muốn từ chối khởi động nếu TRUST_PROXY_HEADERS=1 mà API bind 0.0.0.0
+- Loại: chore · 2 điểm · Must · Sprint 1 · Owner: claude · Phụ thuộc: T-013
+- Acceptance criteria:
+  - Given TRUST_PROXY_HEADERS=1 và HOST=0.0.0.0 When khởi động Then thoát lỗi rõ ràng
+  - Given TRUST_PROXY_HEADERS=1 và HOST=127.0.0.1 When khởi động Then chạy
+  - Given TRUST_PROXY_HEADERS=0 When khởi động Then chạy bình thường
+
+### T-017: [CHẶN MỞ ĐĂNG KÝ CHO NGƯỜI NGOÀI] BFF chuyển IP thật qua X-Visitor-IP kèm bí mật chung
+- Loại: feature · 3 điểm · Must · Sprint 1 · Owner: claude · Phụ thuộc: T-013, T-033
+- **Không mở đăng ký cho người ngoài khi T-017 và T-016 chưa xong** (qua BFF backend chỉ thấy một IP, giới hạn theo IP gộp mọi khách).
+- Acceptance criteria:
+  - Given BFF nhận CF-Connecting-IP hợp lệ When gọi backend Then gửi X-Visitor-IP và X-BFF-Secret
+  - Given backend nhận X-Visitor-IP với secret đúng (so sánh hằng thời gian) When tính key Then dùng IP đó
+  - Given secret sai hoặc thiếu When có X-Visitor-IP Then bỏ qua header, dùng IP kết nối
+  - Given BFF_SHARED_SECRET Then chỉ ở env phía server, không NEXT_PUBLIC_
+  - Given hai khách khác IP qua BFF When đăng nhập sai Then bộ đếm tách riêng
 
 ## E3 — Link của user và redirect /go  (13 điểm)
 

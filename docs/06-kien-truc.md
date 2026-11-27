@@ -1,14 +1,14 @@
 # 06 — Kiến trúc
 
-## 0. Cập nhật hạ tầng (2026-11-27, theo PO: dùng free tier Vercel / Cloudflare / AWS)
+## 0. Cập nhật hạ tầng (2026-11-27, PO chốt: không dùng Vercel; web và API chạy ở máy nhà qua Cloudflare Tunnel)
 
-Phần này **thay thế** các mục 2, 4, 5, 6 bên dưới ở chỗ mâu thuẫn. Ràng buộc cứng không đổi: Shopee chặn IP datacenter (Vercel, Cloudflare, AWS đều là datacenter), nên **chỉ `sync-worker` bắt buộc chạy ở máy nhà**. Mọi thứ còn lại có thể lên cloud free.
+Phần này **thay thế** các mục 2, 4, 5, 6 bên dưới ở chỗ mâu thuẫn. Ràng buộc cứng không đổi: Shopee chặn IP datacenter (Vercel, Cloudflare, AWS đều là datacenter), nên **chỉ `sync-worker` bắt buộc chạy ở máy nhà**. Phần còn lại chọn theo bảng dưới. **Vercel Hobby chỉ cho dùng phi thương mại nên bị loại cho web này (PO, 2026-11-27); AWS không dùng ở MVP.**
 
 | Thành phần | Chỗ chạy | Ghi chú |
 |---|---|---|
-| Web (Next.js) | **Cloudflare Pages** (ưu tiên) hoặc Vercel | Vercel Hobby ghi là dành cho dùng phi thương mại; site có thu hoa hồng nên PO cần đọc điều khoản trước. Cloudflare không có hạn chế đó theo hiểu biết của tôi, cần PO kiểm tra lại |
+| Web (Next.js, gồm BFF) | **Máy nhà**, chạy `next start` (Node), chung Cloudflare Tunnel với `api` | Chi phí 0đ. BFF cần runtime Node và gọi `api` qua `127.0.0.1`, nên không dùng Pages/edge. Phương án B khi có ngân sách: gói thương mại của một nhà cung cấp (kiểm tra điều khoản trước) |
 | `/go/{code}` (redirect + ghi click) | **Cloudflare Worker** | Luôn bật, không phụ thuộc máy nhà → **giải quyết rủi ro R-11** (máy tắt vẫn ghi click). Ghi DB qua Neon HTTP driver |
-| `api` (auth, ví, rút, admin, Tool API) | Vercel (Python serverless) **hoặc** Cloudflare Workers; nếu FastAPI không hợp serverless thì để ở máy nhà sau Tunnel | Chốt ở Sprint 0 bằng spike nhỏ; tránh hàm chạy lâu vì giới hạn thời gian của gói free |
+| `api` (auth, ví, rút, admin, Tool API) | **Máy nhà**, chỉ lắng nghe `127.0.0.1`, ra Internet qua Cloudflare Tunnel | Không serverless: FastAPI chạy tiến trình thường. Khi `TRUST_PROXY_HEADERS=1` mà bind `0.0.0.0` thì từ chối khởi động (xem T-016) |
 | Postgres | **Neon free** (hoặc Supabase free) | Dùng chung cho cloud và máy nhà qua `DATABASE_URL`; kiểm tra giới hạn dung lượng/ngủ đông khi đăng ký |
 | `sync-worker` + job `pending→available` | **Máy nhà** (IP nhà) | Kết nối Neon qua Internet. Máy tắt thì sync dừng, nhưng cũng đúng ý: không sync thì không chuyển tiền |
 | Backup | `pg_dump` từ máy nhà lên Google Drive/ổ ngoài; thêm bản của chính Neon nếu gói có | |
@@ -36,7 +36,7 @@ flowchart TB
 ```mermaid
 flowchart LR
   subgraph CF[Cloudflare - free]
-    PAGES[web: Next.js<br/>Cloudflare Pages]
+    PAGES[web: Next.js + BFF<br/>máy nhà]
     TUN[Cloudflare Tunnel]
   end
   subgraph HOME[Máy nhà - Docker Compose]
@@ -66,7 +66,7 @@ flowchart LR
 | Backend | **FastAPI** (Python) | Cùng ngôn ngữ với code hiện có (`affiliate.py`, `revenue.py`), tái sử dụng được | Node/NestJS: phải viết lại logic |
 | DB | **Postgres 16** | Transaction, ràng buộc cho ví | SQLite: không đủ cho ví đa tiến trình |
 | Migration | Alembic | Chuẩn với SQLAlchemy | |
-| Web | **Next.js** → Cloudflare Pages (hoặc Vercel) | Free, không cần thẻ (cần xác nhận lúc đăng ký) | Vite SPA: đơn giản hơn, ít SEO |
+| Web | **Next.js** chạy ở máy nhà sau Cloudflare Tunnel (không Vercel Hobby: chỉ phi thương mại) | 0đ, không cần thẻ | Vite SPA: đơn giản hơn, ít SEO |
 | Đưa ra Internet | **Cloudflare Tunnel** | Free, không mở cổng router | ngrok free (URL đổi), Tailscale Funnel |
 | Email giao dịch | SMTP từ nhà cung cấp có gói free (chọn khi vào Sprint 1, kiểm tra không cần thẻ) | Chỉ cần xác minh/quên mật khẩu | |
 | Cảnh báo | Telegram Bot | Free | Email |
@@ -83,7 +83,7 @@ Loại bỏ dịch vụ cần thẻ tín dụng hoặc có thể phát sinh phí
 ## 5. Chịu lỗi khi máy nhà tắt / mất mạng
 | Tình huống | Hành vi |
 |---|---|
-| Máy tắt | `/go/` không phản hồi. Web (Pages) vẫn hiện, báo "bảo trì". **Link `direct_url`** (affiliate trực tiếp, `sub_id` mức link) vẫn dùng được và vẫn ra hoa hồng. |
+| Máy tắt | Web và API tắt theo (chạy ở máy nhà). `/go/` trên Cloudflare Worker + Neon vẫn chạy và vẫn ghi click. **Link `direct_url`** (affiliate trực tiếp, `sub_id` mức link) vẫn dùng được và vẫn ra hoa hồng. |
 | Bật lại | `sync-worker` quét 60 ngày nên bù đủ; đơn không bị mất vì Shopee giữ dữ liệu |
 | Mất mạng nhưng máy chạy | Giống trên; `sync-worker` retry với backoff |
 | Cookie chết | Cảnh báo; dừng cộng/chuyển tiền; staff dùng import CSV |
@@ -93,7 +93,7 @@ Loại bỏ dịch vụ cần thẻ tín dụng hoặc có thể phát sinh phí
 
 ## 6. Triển khai
 - **Dev:** `docker compose up` (Postgres, api, web, link-api, sync-worker rỗng), `MOCK=1`.
-- **Prod (MVP):** cùng compose trên máy nhà + `cloudflared`; web lên Cloudflare Pages. Máy nên bật `restart: unless-stopped` và tự chạy lại khi khởi động.
+- **Prod (MVP):** cùng compose trên máy nhà + `cloudflared`; web (Next.js `next start`) cũng ở máy nhà, chung Tunnel. Máy nên bật `restart: unless-stopped` và tự chạy lại khi khởi động.
 - Secret chỉ ở `.env` trên máy (không commit); cookie Shopee lưu trong DB dạng mã hóa bằng khóa `APP_ENC_KEY`.
 
 ## 7. Đường nâng cấp khi có tiền
