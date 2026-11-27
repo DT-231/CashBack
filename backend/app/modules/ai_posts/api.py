@@ -31,4 +31,5 @@ def search(request: Request, keyword: str = Query(min_length=1, max_length=200),
 def health(request: Request, _: AgentIdentity = Depends(require_agent)):
     s = request.app.state.settings
     return {"ok": True, "mock": s.mock, "engine": s.search_engine, "feed_configured": bool(s.feed_file),
-            "cookie_set": bool(s.shopee_cookie.get_secret_value()), "aff_id_set": bool(s.aff_id)}
+            "cookie_set": bool(s.shopee_cookie.get_secret_value()),
+            "web_cookie_set": bool(s.shopee_web_cookie.get_secret_value()), "aff_id_set": bool(s.aff_id)}

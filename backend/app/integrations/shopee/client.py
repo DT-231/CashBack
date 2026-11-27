@@ -81,9 +81,12 @@ class ShopeeClient:
             "Referer": "https://shopee.vn/search?keyword=" + requests.utils.quote(keyword),
             "X-Requested-With": "XMLHttpRequest", "X-API-SOURCE": "pc", "X-Shopee-Language": "vi",
         }
-        if self._cookie():
-            h["Cookie"] = self._cookie()
-        enc = self.s.shopee_af_ac_enc_dat.get_secret_value().strip()
+        # Cookie của shopee.vn. TUYỆT ĐỐI không fallback sang cookie affiliate (khác host -> luôn 403)
+        c = self.s.shopee_web_cookie.get_secret_value().strip()
+        if c:
+            h["Cookie"] = c
+        enc = (self.s.shopee_web_enc_dat.get_secret_value().strip()
+               or self.s.shopee_af_ac_enc_dat.get_secret_value().strip())
         if enc:   # header chống bot, đổi theo phiên
             h["af-ac-enc-dat"] = enc
         return h
@@ -102,6 +105,10 @@ class ShopeeClient:
         }
 
     def _search_live(self, keyword: str, limit: int, sort: str) -> dict:
+        if not self.s.shopee_web_cookie.get_secret_value().strip():
+            # Không bắn 3 request để nhận 403 chung chung: báo thẳng để ProductSearch rơi sang engine kế
+            return {"ok": False, "items": [], "source": "shopee",
+                    "error": "Thiếu SHOPEE_WEB_COOKIE (cookie của shopee.vn, không phải affiliate.shopee.vn)"}
         params = {"by": "sales" if sort == "sales" else "relevancy", "keyword": keyword, "limit": limit,
                   "newest": 0, "order": "desc", "page_type": "search", "scenario": "PAGE_GLOBAL_SEARCH",
                   "version": 2, "item_card": 2}

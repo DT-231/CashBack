@@ -27,7 +27,8 @@ def _err(msg: str, code: int) -> JSONResponse:
 def health(request: Request):
     s = request.app.state.settings
     return {"ok": True, "mock": s.mock, "aff_id_set": bool(s.aff_id),
-            "cookie_set": bool(s.shopee_cookie.get_secret_value()), "engine": s.search_engine,
+            "cookie_set": bool(s.shopee_cookie.get_secret_value()),
+            "web_cookie_set": bool(s.shopee_web_cookie.get_secret_value()), "engine": s.search_engine,
             "feed_configured": bool(s.feed_file)}
 
 

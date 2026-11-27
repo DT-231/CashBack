@@ -18,8 +18,10 @@ class Resp:
         return self._d
 
 
-def make(cookie="fake=1", ttl=0, **kw):
-    return ShopeeClient(Settings(shopee_cookie=cookie, shopee_cache_ttl=ttl, **kw), sleep=lambda s: None)
+def make(cookie="fake=1", ttl=0, web="web=1", **kw):
+    """cookie = cookie affiliate.shopee.vn (dashboard); web = cookie shopee.vn (search)."""
+    return ShopeeClient(Settings(shopee_cookie=cookie, shopee_web_cookie=web, shopee_cache_ttl=ttl, **kw),
+                        sleep=lambda s: None)
 
 
 def patch_get(monkeypatch, fn):
@@ -195,3 +197,46 @@ def test_fake_client_is_offline_and_shaped():
     assert f.search("x", 1)["items"][0]["name"] != "changed"
     snap = f.dashboard_snapshot(7)
     assert snap.daily["clicks_sum"] == 14 and len(snap.orders) == 2
+
+
+# ---------- P0-1: cookie search đúng host ----------
+def test_search_uses_web_cookie_never_affiliate_cookie(monkeypatch):
+    seen = {}
+
+    def fake(self, url, **k):
+        seen["cookie"] = self.headers.get("Cookie")
+        seen["enc"] = self.headers.get("af-ac-enc-dat")
+        return Resp(403)
+    monkeypatch.setattr("requests.Session.get", fake)
+    make(cookie="AFFILIATE=1", web="SPC_F=web", shopee_web_enc_dat="enc-web", shopee_af_ac_enc_dat="enc-aff").search("x")
+    assert seen["cookie"] == "SPC_F=web" and seen["enc"] == "enc-web"
+
+
+def test_search_enc_dat_falls_back_to_legacy_var_but_cookie_never_does(monkeypatch):
+    seen = {}
+    monkeypatch.setattr("requests.Session.get", lambda self, url, **k: seen.update(enc=self.headers.get("af-ac-enc-dat")) or Resp(403))
+    make(shopee_af_ac_enc_dat="legacy-enc").search("x")
+    assert seen["enc"] == "legacy-enc"
+
+
+def test_search_without_web_cookie_fails_fast_without_network(monkeypatch):
+    calls = []
+    patch_get(monkeypatch, lambda *a, **k: calls.append(1) or Resp(403))
+    r = make(cookie="AFFILIATE=1", web="").search("x")
+    assert not r["ok"] and "Thiếu SHOPEE_WEB_COOKIE" in r["error"] and calls == []
+    assert "AFFILIATE" not in r["error"]
+
+
+def test_dashboard_still_uses_affiliate_cookie(monkeypatch):
+    seen = {}
+    monkeypatch.setattr("requests.Session.get", lambda self, url, **k: seen.update(c=self.headers.get("cookie")) or Resp(200, {"code": 0}))
+    make(cookie="AFFILIATE=1", web="WEB=1")._get("/x", {})
+    assert seen["c"] == "AFFILIATE=1"
+
+
+def test_health_reports_both_cookies(make_settings):
+    from fastapi.testclient import TestClient
+    from app.main_api import create_app
+    c = TestClient(create_app(make_settings(shopee_cookie="a=1", shopee_web_cookie="")))
+    j = c.get("/health").json()
+    assert j["cookie_set"] is True and j["web_cookie_set"] is False

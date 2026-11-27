@@ -81,6 +81,15 @@ docs/                      # thiết kế (00–13), adr/, runbooks/, refactor/
 backlog/                   # issues.csv, tasks/<id>.md
 ```
 
+## Cấu hình cookie Shopee (2 loại, KHÁC host, không trộn)
+
+| Biến | Cookie của | Dùng cho | Lấy ở |
+|---|---|---|---|
+| `SHOPEE_WEB_COOKIE` (+ `SHOPEE_WEB_ENC_DAT`) | `shopee.vn` | **search** (`/api/v4/search/search_items`) | login shopee.vn → F12 → Network → request tới shopee.vn → header `Cookie` |
+| `SHOPEE_COOKIE` | `affiliate.shopee.vn` | **dashboard/báo cáo** (`scripts/revenue_report.py`) | login affiliate.shopee.vn → F12 → Network → header `Cookie` |
+
+Dùng nhầm cookie affiliate cho search thì Shopee luôn trả 403. Thiếu `SHOPEE_WEB_COOKIE` thì engine `api` báo lỗi ngay và `auto` rơi sang feed/browser. Dán nguyên dòng `Cookie: a=b; c=d` cũng được. Không bao giờ commit hay log cookie.
+
 ## Muốn sửa X thì vào đâu
 
 | Muốn sửa | Vào |

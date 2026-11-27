@@ -36,6 +36,10 @@ class Settings(BaseSettings):
     shopee_cookie: SecretStr = Field(
         default=SecretStr(""), validation_alias=AliasChoices("SHOPEE_COOKIE", "AFF_COOKIE"))
     shopee_af_ac_enc_dat: SecretStr = SecretStr("")
+    # Cookie của shopee.vn (KHÁC host với shopee_cookie của affiliate.shopee.vn): chỉ dùng cho search.
+    shopee_web_cookie: SecretStr = Field(
+        default=SecretStr(""), validation_alias=AliasChoices("SHOPEE_WEB_COOKIE"))
+    shopee_web_enc_dat: SecretStr = SecretStr("")
     shopee_proxy: str = ""
     shopee_ua: str = ""
     shopee_search_url: str = "https://shopee.vn/api/v4/search/search_items"
