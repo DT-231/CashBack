@@ -24,6 +24,7 @@ from app.core.money import micro_to_vnd_round
 from app.integrations.shopee.errors import ShopeeBlockedError, ShopeeConfigError, ShopeeError
 
 AFFILIATE_BASE = "https://affiliate.shopee.vn"
+PAGE_SIZE = 100
 VN_TZ = timezone(timedelta(hours=7))
 DEFAULT_UA = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
               "(KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36")
@@ -181,10 +182,16 @@ class ShopeeClient:
         out: list[dict] = []
         page = 1
         while page <= max_pages:
-            data = self._get(path, dict(params, page_num=page, page_size=100)).get("data") or {}
+            data = self._get(path, dict(params, page_num=page, page_size=PAGE_SIZE)).get("data") or {}
             rows = data.get("list") or []
             out.extend(rows)
-            if not rows or len(out) >= int(data.get("total_count") or 0):
+            if not rows:
+                break
+            total = data.get("total_count")
+            # Chỉ tin total_count khi có (response thiếu trường này không được coi là "đã đủ")
+            if isinstance(total, int) and total > 0 and len(out) >= total:
+                break
+            if len(rows) < PAGE_SIZE:      # trang cuối
                 break
             page += 1
         return out

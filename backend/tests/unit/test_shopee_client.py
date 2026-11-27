@@ -165,8 +165,8 @@ def test_paged_stops_at_total_count_and_max_pages(monkeypatch):
     c = make()
     monkeypatch.setattr(c, "_get", fake)
     assert len(c._paged("/x", {})) == 150 and pages == [1, 2]
-    monkeypatch.setattr(c, "_get", lambda p, q: {"data": {"total_count": 10**9, "list": [{"i": 1}]}})
-    assert len(c._paged("/x", {}, max_pages=3)) == 3
+    monkeypatch.setattr(c, "_get", lambda p, q: {"data": {"total_count": 10**9, "list": [{"i": 1}] * 100}})
+    assert len(c._paged("/x", {}, max_pages=3)) == 300
     monkeypatch.setattr(c, "_get", lambda p, q: {"data": {"list": []}})
     assert c._paged("/x", {}) == []
 
@@ -240,3 +240,37 @@ def test_health_reports_both_cookies(make_settings):
     c = TestClient(create_app(make_settings(shopee_cookie="a=1", shopee_web_cookie="")))
     j = c.get("/health").json()
     assert j["cookie_set"] is True and j["web_cookie_set"] is False
+
+
+# ---------- P0-2: _paged ----------
+def _pages(monkeypatch, c, pages, total=None):
+    asked = []
+
+    def fake(path, params):
+        asked.append(params["page_num"])
+        rows = pages[params["page_num"] - 1] if params["page_num"] <= len(pages) else []
+        data = {"list": rows}
+        if total is not None:
+            data["total_count"] = total
+        return {"code": 0, "data": data}
+    monkeypatch.setattr(c, "_get", fake)
+    return asked
+
+
+def test_paged_without_total_count_collects_all_pages(monkeypatch):
+    c = make()
+    full = [{"i": 1}] * 100
+    asked = _pages(monkeypatch, c, [full, full, full, []])
+    assert len(c._paged("/x", {})) == 300 and asked == [1, 2, 3, 4]
+
+
+def test_paged_with_total_count_stops_when_reached(monkeypatch):
+    c = make()
+    asked = _pages(monkeypatch, c, [[{"i": 1}] * 100, [{"i": 1}] * 50, [{"i": 1}] * 100], total=150)
+    assert len(c._paged("/x", {})) == 150 and asked == [1, 2]
+
+
+def test_paged_short_first_page_stops_immediately(monkeypatch):
+    c = make()
+    asked = _pages(monkeypatch, c, [[{"i": 1}] * 40, [{"i": 1}] * 100])
+    assert len(c._paged("/x", {})) == 40 and asked == [1]
