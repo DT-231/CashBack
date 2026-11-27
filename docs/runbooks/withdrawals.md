@@ -15,7 +15,7 @@ Mã: `backend/app/modules/payout/` (api, service, repository), `backend/app/modu
 Chỉ **admin** được duyệt, từ chối, đánh dấu đã chi trả, xem số tài khoản. **Staff không xem số tài khoản và không duyệt tiền** (kiểm ở API `require_admin` và lại ở service). Người dùng chỉ thấy 4 số cuối tài khoản của mình; số đầy đủ không bao giờ có trong response người dùng, log, audit hay thông báo lỗi.
 
 ## Đổi khóa mã hóa (xoay khóa)
-1. Tạo khóa mới. Đặt `BANK_ENC_KEY_OLD`...: `BANK_ENC_KEY=<khóa mới>`, `BANK_ENC_KEY_ID=k2`, `BANK_ENC_OLD_KEYS=k1:<khóa cũ>`.
+1. Tạo khóa mới rồi đặt `BANK_ENC_KEY=<khóa mới>`, `BANK_ENC_KEY_ID=k2`, `BANK_ENC_OLD_KEYS=k1:<khóa cũ>`.
 2. Bản mới dùng `k2`; bản mã cũ (`key_id=k1`) vẫn giải mã được. **Chưa có công cụ mã hóa lại hàng loạt** (backlog): chỉ bỏ `k1` khỏi `BANK_ENC_OLD_KEYS` khi không còn dòng `bank_accounts.key_id='k1'` (`SELECT key_id, count(*) FROM bank_accounts GROUP BY 1`).
 3. Giữ bản sao lưu khóa cũ cho tới khi xác nhận bước 2.
 

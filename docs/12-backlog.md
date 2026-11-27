@@ -14,6 +14,9 @@ Nguồn dữ liệu máy đọc: `backlog/issues.csv` (cùng nội dung).
 - [ ] **PO đã xác nhận với Shopee (bằng văn bản) về mô hình cashback** (rủi ro R-02): chia lại hoa hồng cho người dùng có được phép không, cần đăng ký kênh nào
 - [ ] **Trang Điều khoản và Chính sách quyền riêng tư** (T-064): bản nháp, **cần tư vấn pháp lý** trước khi dùng thật (R-06, R-17)
 - [ ] **`audit_logs` xong** (phần còn thiếu của T-013; đã làm ở nhánh `task/audit-logs`, chờ PO duyệt merge): ghi ai/hành động/đối tượng/thời điểm/IP băm cho thao tác admin và tiền
+- [ ] **Admin bật đăng nhập hai lớp (TOTP) trước khi bật rút tiền thật** (T-019; duyệt/chi trả/xem số tài khoản chỉ admin, nên tài khoản admin là điểm yếu nhất)
+- [ ] **`BANK_ENC_KEY` đã sao lưu NGOÀI `.env`** (hai nơi, tách bản sao lưu DB); mất khóa = không trả được cho ai (`docs/runbooks/withdrawals.md`)
+- [ ] **Ứng dụng chạy bằng tài khoản DB riêng `cashback_app`** (không sở hữu bảng, không TRUNCATE, không sửa/xóa sổ cái và `audit_logs`): `infra/db/app-role.sql`, `docs/runbooks/db-roles.md`
 
 Ghi chú: các mục trên là điều kiện **mở cho người ngoài**. Dùng nội bộ (chỉ PO và người quen, không quảng bá) vẫn có thể thử trên máy mình bằng tunnel nhanh.
 
@@ -166,6 +169,15 @@ Ghi chú: các mục trên là điều kiện **mở cho người ngoài**. Dùn
   - Given chữ ký chỉ 3 ký tự (không có id khóa) When thử nhiều khóa Then việc khớp nhầm bị chặn bởi kiểm tra sở hữu (click/link thuộc đúng user) của attribution, có test về khả năng khớp nhầm
   - Given khóa cũ quá ngắn hoặc trùng khóa hiện tại When khởi động Then từ chối
   - Given runbook When đọc Then có quy trình xoay khóa và việc sao lưu khóa ngoài `.env`
+
+### T-019: Là admin, tôi muốn đăng nhập hai lớp (TOTP) để tài khoản admin không bị chiếm
+- Loại: feature · 5 điểm · Must (trước khi bật rút tiền thật) · Sprint 2 · Owner: claude · Phụ thuộc: T-010, T-040. **Chưa làm** (ghi 2026-11-28).
+- Acceptance criteria:
+  - Given admin chưa bật TOTP When gọi endpoint admin (duyệt, từ chối, chi trả, xem số tài khoản) Then 403 `mfa_required`
+  - Given admin đăng ký TOTP When quét mã và nhập mã đúng Then bật; mã khôi phục hiện đúng một lần, lưu dạng băm
+  - Given mã TOTP sai hoặc dùng lại trong cùng cửa sổ When đăng nhập Then từ chối; có rate limit
+  - Given bí mật TOTP When lưu Then mã hóa như `BANK_ENC_KEY` (AES-GCM, có key_id), không vào log/audit/response
+  - Given bật/tắt/đổi TOTP When thực hiện Then ghi `audit_logs`
 
 ## E3 — Link của user và redirect /go  (13 điểm)
 
