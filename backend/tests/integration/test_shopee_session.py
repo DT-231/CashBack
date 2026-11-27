@@ -129,6 +129,10 @@ def test_status_tracking_for_the_worker_and_reset_on_new_cookie(api, pg, setting
     svc.record_result("failed", blocked=True)
     d = row(pg)
     assert d["status"] == "blocked" and d["failure_count"] == 2
+    svc.record_result("ok")                                                         # phục hồi: về healthy và xóa bộ đếm lỗi
+    d = row(pg)
+    assert d["status"] == "healthy" and d["failure_count"] == 0
+    svc.record_result("failed")
     api.put("/api/v1/admin/shopee-session", headers=ah, json={"cookie": COOKIE + "; extra=1"})     # cookie mới: về unknown, đếm lại
     d = row(pg)
     assert d["status"] == "unknown" and d["failure_count"] == 0
