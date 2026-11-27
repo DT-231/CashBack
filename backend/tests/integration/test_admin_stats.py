@@ -69,6 +69,7 @@ def test_overview_counts_money_as_integers(api, pg):
     before = api.get("/api/v1/admin/overview?days=30", headers=ah).json()
     assert before["days"] == 30 and before["users"]["total"] >= 3 and before["users"]["new"] >= 3
     assert before["orders"]["PENDING"]["count"] >= 2 and before["orders"]["PENDING"]["commission_micro"] >= 4037501000
+    assert before["orders"]["PENDING"]["commission_vnd"] == before["orders"]["PENDING"]["commission_micro"] // 100_000   # backend quy đổi, UI không tự tính
     assert all(isinstance(v, int) for v in before["wallet_totals_vnd"].values())
     assert before["wallet_totals_vnd"]["pending"] >= 24225 and before["wallet_totals_vnd"]["held"] >= 7
     assert before["orphans_open"] >= 0 and isinstance(before["clicks"], int)
@@ -93,6 +94,8 @@ def test_orders_filters_and_validation(api, pg):
         c.execute(text("INSERT INTO shopee_orders(order_sn, status, source_type, commission_micro) VALUES "
                        "('ITEST-S-A', 'COMPLETED', 'unknown', 1), ('ITEST-S-B', 'PENDING', 'unknown', 1)"))
     ids = lambda **p: [x["order_sn"] for x in api.get("/api/v1/admin/orders", params={"limit": 100, **p}, headers=ah).json()]   # noqa: E731
+    one = [x for x in api.get("/api/v1/admin/orders", params={"status": "COMPLETED", "limit": 100}, headers=ah).json() if x["order_sn"] == "ITEST-S-A"][0]
+    assert one["commission_vnd"] == 0 and one["commission_micro"] == 1                                              # 1 micro = 0 đồng (làm tròn xuống)
     assert "ITEST-S-A" in ids(status="COMPLETED") and "ITEST-S-B" not in ids(status="COMPLETED")
     assert "ITEST-S-B" in ids(status="PENDING", source="unknown") and "ITEST-S-A" not in ids(status="PENDING")
     assert api.get("/api/v1/admin/orders", params={"status": "x'; DROP TABLE users;--"}, headers=ah).status_code == 422

@@ -51,7 +51,7 @@ export type AdminOverview = {
   days: number;
   users: { total: number; new: number; locked: number };
   clicks: number; links: number;
-  orders: Record<string, { count: number; commission_micro: number }>;
+  orders: Record<string, { count: number; commission_micro: number; commission_vnd: number }>;
   orphans_open: number;
   wallet_totals_vnd: { pending: number; available: number; held: number };
   withdrawals: Record<string, { count: number; amount_vnd: number }>;
@@ -63,10 +63,10 @@ export type AdminUser = {
 };
 export type AdminOrder = {
   id: number; order_sn: string; status: "PENDING" | "COMPLETED" | "CANCELLED" | "RETURNED"; source_type: string;
-  user_id: number | null; post_id: number | null; commission_micro: number; purchase_time: string | null; completed_at: string | null;
+  user_id: number | null; post_id: number | null; commission_micro: number; commission_vnd: number; purchase_time: string | null; completed_at: string | null;
 };
 export type AdminOrphan = {
-  id: number; order_sn: string; status: string; commission_micro: number; purchase_time: string | null; utm_content: string | null; reason: string;
+  id: number; order_sn: string; status: string; commission_micro: number; commission_vnd: number; purchase_time: string | null; utm_content: string | null; reason: string;
 };
 export type ShopeeSessionStatus = { has_cookie: boolean; status: "unknown" | "healthy" | "degraded" | "expired" | "blocked"; last_ok_at: string | null; failure_count: number; updated_at: string | null };
 export type ApiErrorBody = { error: { code: string; message: string; request_id: string | null } };
