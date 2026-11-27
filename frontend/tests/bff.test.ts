@@ -42,6 +42,15 @@ beforeEach(() => { vi.stubEnv("API_BASE_URL", "http://api.test"); vi.stubEnv("NO
 afterEach(() => vi.unstubAllEnvs());
 
 describe("csrf", () => {
+  it("mọi phương thức ghi đều cần X-CSRF (cookie truy cập là Lax nên đây là lớp chính)", () => {
+    for (const m of ["POST", "PUT", "PATCH", "DELETE"]) expect(checkCsrf(req(m, "/x", { csrf: false }))?.code, m).toBe("csrf");
+    for (const m of ["GET", "HEAD"]) expect(checkCsrf(new Request("https://app.test/x", { method: m })), m).toBeNull();
+  });
+  it("allowlist chỉ có GET đọc và đúng các POST đã biết", () => {
+    const writes = ["POST links"];
+    const all = [["POST", ["links"]], ["PUT", ["links"]], ["DELETE", ["me", "links"]], ["PATCH", ["me", "wallet"]]] as const;
+    for (const [m, seg] of all) expect(isAllowed(m, [...seg]), `${m} ${seg.join("/")}`).toBe(writes.includes(`${m} ${seg.join("/")}`));
+  });
   it("cho GET qua, chặn ghi thiếu X-CSRF / sai Origin / không phải JSON", () => {
     expect(checkCsrf(req("GET", "/bff/api/me/wallet"))).toBeNull();
     expect(checkCsrf(req("POST", "/x", { csrf: false }))?.code).toBe("csrf");
@@ -67,11 +76,16 @@ describe("allowlist", () => {
 });
 
 describe("cookies", () => {
-  it("HttpOnly, SameSite=Strict, đúng Path và Max-Age", () => {
+  it("HttpOnly, access Lax, refresh Strict, đúng Path và Max-Age", () => {
     const [a, r] = sessionCookies(TOK(1));
-    expect(a).toMatch(/^access=NEW\.access\.1; Path=\/; Max-Age=900; HttpOnly; SameSite=Strict$/);
+    expect(a).toMatch(/^access=NEW\.access\.1; Path=\/; Max-Age=900; HttpOnly; SameSite=Lax$/);
     expect(r).toMatch(/Path=\/bff; Max-Age=2592000; HttpOnly; SameSite=Strict$/);
     expect(a).not.toMatch(/Secure/);
+  });
+  it("xóa cookie giữ nguyên SameSite của từng loại", () => {
+    const [a, r] = clearCookies();
+    expect(a).toMatch(/Max-Age=0; HttpOnly; SameSite=Lax$/);
+    expect(r).toMatch(/Max-Age=0; HttpOnly; SameSite=Strict$/);
   });
   it("production: tiền tố __Host-/__Secure- và cờ Secure", () => {
     vi.stubEnv("NODE_ENV", "production");

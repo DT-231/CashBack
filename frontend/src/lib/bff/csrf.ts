@@ -1,4 +1,4 @@
-/** Chống CSRF cho mọi phương thức ghi: SameSite=Strict (ở cookie) cộng kiểm tra tại đây. */
+/** Chống CSRF cho mọi phương thức ghi: X-CSRF + Origin + JSON ở đây là lớp chính (cookie truy cập là Lax nên không dựa vào SameSite). Mọi route GET phải chỉ-đọc. */
 const SAFE = new Set(["GET", "HEAD", "OPTIONS"]);
 
 export type CsrfFailure = { code: string; message: string } | null;
