@@ -99,6 +99,10 @@ class Settings(BaseSettings):
             raise ConfigError(
                 f"HOST={self.host} lắng nghe ngoài localhost nhưng chưa đặt AGENT_API_KEY; "
                 "đặt khóa hoặc dùng HOST=127.0.0.1")
+        if not self.is_loopback and not self.ip_salt.get_secret_value():
+            raise ConfigError(
+                f"HOST={self.host} lắng nghe ngoài localhost nhưng chưa đặt IP_SALT: click sẽ không có "
+                "ip_hash/ua_hash (dữ liệu chống gian lận không khôi phục được); đặt IP_SALT hoặc dùng HOST=127.0.0.1")
 
 
 def load_settings(env_file: Path | str | None = REPO_ROOT / ".env", **overrides) -> Settings:

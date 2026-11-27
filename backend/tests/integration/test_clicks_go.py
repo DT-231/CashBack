@@ -145,3 +145,61 @@ def test_missing_subid_secret_is_503(make_settings, pg):
     api = TestClient(create_app(s, engine=pg), raise_server_exceptions=False, follow_redirects=False)
     r = api.get("/go/abcdefgh")
     assert r.status_code == 503 and r.json()["error"]["code"] == "not_configured"
+
+
+def test_missing_aff_id_is_503_and_leaves_no_phantom_click(make_settings, pg):
+    s = make_settings(database_url=DB_URL, jwt_secret="j" * 40, subid_secret=SUBID_SECRET, shopee_aff_id="")
+    api = TestClient(create_app(s, engine=pg), raise_server_exceptions=False, follow_redirects=False)
+    with pg.connect() as c:
+        before = c.execute(text("SELECT count(*) FROM clicks")).scalar_one()
+    assert api.get("/go/abcdefgh").status_code == 503
+    with pg.connect() as c:
+        assert c.execute(text("SELECT count(*) FROM clicks")).scalar_one() == before
+
+
+def test_locked_owner_still_redirects_but_is_not_attributed(api, pg):
+    uid, code = new_link(api)
+    with pg.begin() as c:
+        c.execute(text("UPDATE users SET status = 'locked' WHERE id = :u"), {"u": uid})
+    r = api.get(f"/go/{code}")
+    d = decode(utm(r), SUBID_SECRET)
+    assert r.status_code == 302 and d.status == "ok" and d.type == "x" and d.owner == 0
+    with pg.connect() as c:
+        assert c.execute(text("SELECT count(*) FROM clicks WHERE link_id = (SELECT id FROM links WHERE code = :c)"),
+                         {"c": code}).scalar_one() == 0
+
+
+@pytest.mark.parametrize("ua", ["facebookexternalhit/1.1", "Mozilla/5.0 (compatible; Googlebot/2.1)",
+                                "TelegramBot (like TwitterBot)", "LinkPreview/1.0"])
+def test_crawlers_are_redirected_but_not_counted_as_clicks(api, pg, ua):
+    uid, code = new_link(api)
+    r = api.get(f"/go/{code}", headers={"user-agent": ua})
+    d = decode(utm(r), SUBID_SECRET)
+    assert r.status_code == 302 and d.type == "l" and d.owner == uid
+    with pg.connect() as c:
+        assert c.execute(text("SELECT count(*) FROM clicks WHERE link_id = (SELECT id FROM links WHERE code = :c)"),
+                         {"c": code}).scalar_one() == 0
+
+
+def test_real_browser_user_agents_are_counted(api, pg):
+    _, code = new_link(api)
+    for ua in ("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0) AppleWebKit/605.1.15 Mobile/15E148 Zalo/23.1",
+               "Mozilla/5.0 (Linux; Android 14) Chrome/120 Mobile Safari/537.36 [FBAN/FB4A;FBAV/450.0]"):
+        api.get(f"/go/{code}", headers={"user-agent": ua})
+    with pg.connect() as c:
+        assert c.execute(text("SELECT count(*) FROM clicks WHERE link_id = (SELECT id FROM links WHERE code = :c)"),
+                         {"c": code}).scalar_one() == 2
+
+
+def test_trailing_newline_code_is_not_accepted(api):
+    assert api.get("/go/abcdefgh%0A").status_code == 404
+
+
+def test_invalid_proxy_ip_header_is_ignored(make_api, pg):
+    api, s = make_api(ip_salt=IP_SALT, trust_proxy_headers=True)
+    _, code = new_link(api)
+    api.get(f"/go/{code}", headers={"cf-connecting-ip": "khong-phai-ip"})
+    with pg.connect() as c:
+        h = c.execute(text("SELECT ip_hash FROM clicks WHERE link_id = (SELECT id FROM links WHERE code = :c)"),
+                      {"c": code}).scalar_one()
+    assert h == hash_value(s, "testclient")

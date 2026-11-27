@@ -36,3 +36,4 @@ class ResolvedLink(BaseModel):
     user_id: int
     shop_id: int
     item_id: int
+    user_active: bool   # chủ link còn hoạt động; bị khóa/chưa xác minh thì không được gán click/đơn
