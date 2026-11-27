@@ -31,3 +31,9 @@ def list_user_links(conn: Connection, user_id: int, limit: int, offset: int):
         "FROM links l JOIN products p ON p.id=l.product_id WHERE l.user_id=:u "
         "ORDER BY l.created_at DESC, l.id DESC LIMIT :lim OFFSET :off"),
         {"u": user_id, "lim": limit, "off": offset}).mappings().all()
+
+
+def get_by_code(conn: Connection, code: str):
+    return conn.execute(text(
+        "SELECT l.id AS link_id, l.user_id, p.shop_id, p.item_id, (u.status = 'active') AS user_active "
+        "FROM links l JOIN products p ON p.id = l.product_id JOIN users u ON u.id = l.user_id WHERE l.code = :c"), {"c": code}).mappings().first()

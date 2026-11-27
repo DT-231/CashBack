@@ -28,3 +28,12 @@ class UserLinkOut(BaseModel):
     product: ProductOut
     created_at: datetime
     clicks: int
+
+
+class ResolvedLink(BaseModel):
+    """Kết quả tra mã /go/{code}: đủ để dựng link affiliate và ghi click."""
+    link_id: int
+    user_id: int
+    shop_id: int
+    item_id: int
+    user_active: bool   # chủ link còn hoạt động; bị khóa/chưa xác minh thì không được gán click/đơn

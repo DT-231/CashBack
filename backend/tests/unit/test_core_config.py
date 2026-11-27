@@ -55,8 +55,14 @@ def test_require_reports_missing_names():
     Settings(shopee_aff_id="1").require("shopee_aff_id")
 
 
+def test_serving_outside_localhost_requires_ip_salt():
+    with pytest.raises(ConfigError, match="IP_SALT"):
+        Settings(host="0.0.0.0", agent_api_key="k" * 20).validate_for_serving()
+    Settings(agent_api_key="k" * 20).validate_for_serving()   # localhost: không bắt buộc
+
+
 def test_serving_outside_localhost_requires_key():
     with pytest.raises(ConfigError, match="AGENT_API_KEY"):
         Settings(host="0.0.0.0").validate_for_serving()
-    Settings(host="0.0.0.0", agent_api_key="k" * 20).validate_for_serving()
+    Settings(host="0.0.0.0", agent_api_key="k" * 20, ip_salt="i" * 20).validate_for_serving()
     assert Settings(host="0.0.0.0").auth_required and Settings(agent_api_key="x").auth_required

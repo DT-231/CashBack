@@ -93,8 +93,8 @@ def test_missing_aff_id_reports_link_error(make_settings):
 
 
 def test_removed_endpoints_are_gone(client):
-    """/go, /api/stats, /api/revenue đã bỏ (docs/08)."""
-    for path in ("/go/abc", "/api/stats", "/api/revenue", "/nope"):
+    """/api/stats, /api/revenue đã bỏ (docs/08). /go/{sub_id} cũ cũng đã bỏ; /go/{code} mới là T-015 (test_clicks_go)."""
+    for path in ("/api/stats", "/api/revenue", "/nope"):
         assert client.get(path).status_code == 404
 
 

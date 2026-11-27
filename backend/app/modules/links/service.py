@@ -24,7 +24,7 @@ from app.modules.links.affiliate_link import (
     product_url,
 )
 from app.modules.links.errors import InvalidLink
-from app.modules.links.schemas import LinkOut, ProductOut, UserLinkOut
+from app.modules.links.schemas import LinkOut, ProductOut, ResolvedLink, UserLinkOut
 
 def enrich_items(settings: Settings, items: list[dict], sub: str) -> list[dict]:
     """Gắn product_url/aff_link/sub_id cho từng item. Không có `sub` thì dùng tiền tố 'api' (không đưa keyword người dùng vào sub_id)."""
@@ -104,3 +104,14 @@ class UserLinkService:
         return [UserLinkOut(code=r["code"], go_url=self._go_url(r["code"]),
                             product=ProductOut(shop_id=r["shop_id"], item_id=r["item_id"], name=r["name"]),
                             created_at=r["created_at"], clicks=r["clicks"]) for r in rows]
+
+    def resolve(self, code: str) -> ResolvedLink | None:
+        """Tra link theo mã công khai (dùng cho /go/{code}). Không có thì trả None."""
+        with self.engine.connect() as conn:
+            row = repository.get_by_code(conn, code)
+        return ResolvedLink(**row) if row else None
+
+    def affiliate_url(self, shop_id: int, item_id: int, sub_id: str) -> str:
+        """Link affiliate cho sản phẩm với sub_id đã ký (do caller dựng bằng app.core.subid)."""
+        self.settings.require("shopee_aff_id")
+        return make_link(product_url(shop_id, item_id), sub_id, LinkConfig.from_settings(self.settings))
