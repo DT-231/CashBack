@@ -17,11 +17,12 @@ export function visitorHeaders(request: Request): Record<string, string> {
   return { "x-visitor-ip": ip, "x-bff-secret": secret };
 }
 
-export async function callApi(f: Fetch, method: string, path: string, opts: { token?: string; body?: string; requestId?: string; visitor?: Record<string, string> }) {
+export async function callApi(f: Fetch, method: string, path: string, opts: { token?: string; body?: string; requestId?: string; visitor?: Record<string, string>; idempotencyKey?: string }) {
   const headers: Record<string, string> = { accept: "application/json", ...(opts.visitor ?? {}) };
   if (opts.token) headers.authorization = `Bearer ${opts.token}`;
   if (opts.body !== undefined) headers["content-type"] = "application/json";
   if (opts.requestId) headers["x-request-id"] = opts.requestId;
+  if (opts.idempotencyKey) headers["idempotency-key"] = opts.idempotencyKey;
   return f(`${apiBase()}/api/v1/${path}`, { method, headers, body: opts.body, redirect: "manual", cache: "no-store" });
 }
 
@@ -40,6 +41,10 @@ export async function passThrough(r: Response, setCookies: string[] = []): Promi
   if (ct) h.set("content-type", ct);
   const rid = r.headers.get("x-request-id");
   if (rid) h.set("x-request-id", rid);
+  for (const name of ["content-disposition", "x-row-count", "retry-after"]) {      // CSV xuất, số dòng, giới hạn tốc độ
+    const v = r.headers.get(name);
+    if (v) h.set(name, v);
+  }
   for (const c of setCookies) h.append("set-cookie", c);
   const body = r.status === 204 || r.status === 304 ? null : await r.arrayBuffer();
   return new Response(body, { status: r.status, headers: h });

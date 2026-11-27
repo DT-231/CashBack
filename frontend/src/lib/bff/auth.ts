@@ -27,6 +27,20 @@ export async function handleAuth(request: Request, action: string, f: Fetch = fe
       })(),
     });
   }
+  if (action === "mfa-verify") {
+    // Backend trả cặp token MỚI có trạng thái đã xác minh hai lớp: BFF thay cookie, không trả token ra trình duyệt.
+    const { access, refresh } = readTokens(request);
+    let token = access;
+    if (!token && refresh) token = (await refreshTokens(f, refresh, visitor))?.access_token;
+    if (!token) return errorResponse(401, "unauthorized", "Chưa đăng nhập", clearCookies());
+    const body = await request.text();
+    const r = await callApi(f, "POST", "auth/mfa/verify", { token, body, requestId: rid, visitor });
+    if (!r.ok) return passThrough(r);                      // mfa_invalid, mfa_state, rate_limited...: chuyển nguyên, KHÔNG đổi cookie
+    const t = (await r.json()) as Tokens;
+    const h = new Headers({ "content-type": "application/json", "cache-control": "no-store" });
+    for (const c of sessionCookies(t)) h.append("set-cookie", c);
+    return new Response(JSON.stringify({ ok: true }), { status: 200, headers: h });
+  }
   if (action === "logout") {
     // Muốn thu hồi refresh token ở backend thì cần access token còn hạn: nếu hết hạn thì làm mới rồi mới đăng xuất.
     const { access, refresh } = readTokens(request);
