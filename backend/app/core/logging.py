@@ -25,6 +25,8 @@ _URL_CRED = re.compile(r"(?i)\b([a-z][a-z0-9+.-]*://[^\s:/@]+):([^\s@/]+)@")    
 def _sensitive_key(k) -> bool:
     low = str(k).lower().replace("-", "_")
     return low in SENSITIVE_KEYS or str(k).lower() in SENSITIVE_KEYS or any(p in low for p in _KEY_PARTS)
+
+
 REDACTED = "***"
 _RID_OK = re.compile(r"[A-Za-z0-9._-]{1,64}")
 

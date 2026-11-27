@@ -159,3 +159,14 @@ def test_warnings_from_startup_checks_degrade_overall(make_settings, pg, tmp_pat
     h = build_health(s, pg)
     assert h["warnings"] and h["overall"] in ("warn", "down")
     assert (build_health(s.model_copy(update={"bff_enabled": False}), pg)["warnings"]) == []
+
+
+def test_backup_not_configured_alone_makes_overall_warn(make_settings, pg):
+    s = make_settings(database_url=DB_URL, backup_dir="")
+    sync_run(pg, "ok", 1)
+    with pg.begin() as c:
+        c.execute(text("DELETE FROM shopee_sessions"))
+        c.execute(text("INSERT INTO shopee_sessions(id, cookie_enc, key_id, status) VALUES (1, 'x', 'k1', 'healthy')"))
+    h = build_health(s, pg)
+    assert (h["db"]["status"], h["sync"]["status"], h["shopee_session"]["status"], h["backup"]["status"]) == ("ok", "ok", "ok", "not_configured")
+    assert h["overall"] == "warn"

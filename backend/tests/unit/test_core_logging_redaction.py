@@ -34,9 +34,9 @@ def test_secret_shaped_text_in_the_message_is_masked():
     for text in (f"Authorization: Bearer {JWT}", f"got header bearer {JWT}", f"token={JWT}", f"jwt {JWT} end",
                  "cookie=SPC_ST=abc123; other", "password: hunter2hunter2", "api_key = k-123456789",
                  "connect postgresql+psycopg://cashback:Sup3rSecret@127.0.0.1:5433/cashback failed",
-                 "mysql://root:pw123@db/x and redis://:onlypass@h"):
+                 "mysql://root:pw123@db/x and redis://:onlypass@h", "sent Bearer opaque-token-abc123xyz987 to upstream"):
         out = json.loads(emit(text))["msg"]
-        for leak in (JWT, "abc123", "hunter2", "k-123456789", "Sup3rSecret", "pw123"):
+        for leak in (JWT, "abc123", "hunter2", "k-123456789", "Sup3rSecret", "pw123", "opaque-token-abc123xyz987"):
             assert leak not in out, (text, out)
     assert "cashback" in json.loads(emit("connect postgresql://cashback:Sup3rSecret@h/db"))["msg"]      # tên user còn để chẩn đoán
 
