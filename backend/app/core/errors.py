@@ -12,13 +12,15 @@ class AppError(Exception):
     status = 400
     code = "bad_request"
 
-    def __init__(self, message: str, *, code: str | None = None, status: int | None = None):
+    def __init__(self, message: str, *, code: str | None = None, status: int | None = None,
+                 headers: dict[str, str] | None = None):
         super().__init__(message)
         self.message = message
         if code:
             self.code = code
         if status:
             self.status = status
+        self.headers = headers or {}
 
 
 class NotFound(AppError):
@@ -33,6 +35,10 @@ class Unauthorized(AppError):
     status, code = 401, "unauthorized"
 
 
+class RateLimited(AppError):
+    status, code = 429, "rate_limited"
+
+
 def error_body(code: str, message: str) -> dict:
     return {"error": {"code": code, "message": message, "request_id": get_request_id()}}
 
@@ -40,7 +46,7 @@ def error_body(code: str, message: str) -> dict:
 def register_error_handlers(app: FastAPI) -> None:
     @app.exception_handler(AppError)
     async def _app_error(_: Request, e: AppError):
-        return JSONResponse(error_body(e.code, e.message), status_code=e.status)
+        return JSONResponse(error_body(e.code, e.message), status_code=e.status, headers=e.headers)
 
     @app.exception_handler(RequestValidationError)
     async def _validation(_: Request, e: RequestValidationError):
