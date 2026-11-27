@@ -83,7 +83,7 @@ Giả định: sprint 2 tuần, velocity khởi đầu **30 điểm/sprint** (Co
 |---|---|---|---|---|
 | T-024 | Là staff, tôi muốn import CSV báo cáo thủ công khi cookie chết | 5 | Should | codex |
 | T-060 | Là admin, tôi muốn backup tự động mỗi ngày và test khôi phục | 3 | Must | codex |
-| T-061 | Là PO, tôi muốn deploy web lên Cloudflare Pages và backend qua Tunnel | 5 | Must | claude |
+| T-061 | Là PO, tôi muốn chạy web (Next.js) và backend ở máy nhà qua chung một Cloudflare Tunnel (chặn bởi T-016, T-017) | 5 | Must | claude |
 | T-062 | Là thành viên, tôi muốn khiếu nại mua rồi chưa thấy đơn, tra theo click | 5 | Should | codex |
 | T-064 | Là PO, tôi muốn Điều khoản và Chính sách quyền riêng tư (bản nháp để luật sư xem) | 3 | Must | claude |
 | T-065 | Là admin, tôi muốn log có cấu trúc, che bí mật và trang health | 3 | Must | codex |
