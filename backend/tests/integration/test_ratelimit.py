@@ -23,12 +23,11 @@ def pg(make_settings):
     with engine.begin() as conn:
         if keys:
             conn.execute(text("DELETE FROM rate_limits WHERE key = ANY(:keys)"), {"keys": list(keys)})
-        test_users = "(SELECT id FROM users WHERE email LIKE 'itest-ratelimit-reg-%@example.test')"
+        test_users = "(SELECT id FROM users WHERE email LIKE 'itest-%@example.test')"
         conn.execute(text(f"DELETE FROM clicks WHERE link_id IN (SELECT id FROM links WHERE user_id IN {test_users})"))
         conn.execute(text(f"DELETE FROM links WHERE user_id IN {test_users}"))
-        conn.execute(text("DELETE FROM products WHERE shop_id = 990099 AND item_id = 100099"))
-        conn.execute(text("DELETE FROM refresh_tokens WHERE user_id IN "
-                          f"{test_users}"))
+        conn.execute(text("DELETE FROM products WHERE shop_id BETWEEN 990001 AND 990009"))
+        conn.execute(text(f"DELETE FROM refresh_tokens WHERE user_id IN {test_users}"))
         conn.execute(text(f"DELETE FROM users WHERE id IN {test_users}"))
     engine.dispose()
 
@@ -171,8 +170,8 @@ def test_go_and_login_fail_open_when_limiter_query_fails(pg, make_settings, monk
     logged_in = client.post("/api/v1/auth/login", json={"email": email, "password": "mat-khau-hop-le"})
     assert logged_in.status_code == 200
     link = client.post("/api/v1/links", headers={"Authorization": f"Bearer {logged_in.json()['access_token']}"},
-                       json={"url": "https://shopee.vn/product/990099/100099"})
-    assert link.status_code == 201
+                       json={"url": "https://shopee.vn/product/990003/100003"})
+    assert link.status_code == 200
 
     monkeypatch.setattr(ratelimit, "_INCREMENT", text("SELECT * FROM definitely_missing_rate_limits_table"))
     track(client, "go", "testclient")
