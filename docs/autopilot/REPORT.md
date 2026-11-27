@@ -1,6 +1,6 @@
 # Báo cáo autopilot (cập nhật 2026-11-28)
 
-Nhánh tích hợp: **`autopilot/main`** (đã push; `main` KHÔNG bị sửa). Số liệu cuối: `make test` **732 passed** (chạy 2 lần liên tiếp, 0 skip, DB sạch sau test), vitest **308 passed** (0 skip), `ruff`, `tsc`, `next build` sạch.
+Nhánh tích hợp: **`autopilot/main`** (đã push; `main` KHÔNG bị sửa). Số liệu cuối: `make test` **735 passed** (chạy 2 lần liên tiếp, 0 skip, DB sạch sau test), vitest **308 passed** (0 skip), `ruff`, `tsc`, `next build` sạch.
 
 ## Đã làm (mỗi mục: nhánh, đã qua thử đột biến; chi tiết số liệu trong `LOG.md`)
 - Gộp 7 nhánh chờ duyệt: T-019 (TOTP admin), prep/T-041 + T-041a/b (rút tiền: backend, BFF, UI người dùng và admin), startup-db-guard, chore/codex-forbidden-paths, docs/launch-gates-table.
