@@ -260,6 +260,7 @@ Nguồn dữ liệu máy đọc: `backlog/issues.csv` (cùng nội dung).
   - Given admin When mở Then thấy click/đơn/hoa hồng/ví/cookie status
   - Given khóa user When thực hiện Then user không đăng nhập được và có audit
   - Given staff When mở Then không thấy trang cookie
+  - Given user đã rút trước khi đơn bị thu hồi (bút toán `adjust`) When admin mở dashboard Then thấy tổng và danh sách khoản lỗ (đơn, user, số tiền, thời điểm); không hiện cho staff không có quyền tài chính
 
 ### T-044: Là staff, tôi muốn gán tay đơn mồ côi cho user khi có khiếu nại
 - Loại: feature · 3 điểm · Must · Sprint 4 · Owner: codex · Phụ thuộc: T-022, T-031
