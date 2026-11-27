@@ -24,7 +24,7 @@ from app.core.money import micro_share_floor
 from app.modules.orders.service import AttributedOrder, OrderReader
 from app.modules.platform_settings.service import PlatformSettings
 from app.modules.wallet import ledger, repository
-from app.modules.wallet.schemas import EntryOut, WalletOut
+from app.modules.wallet.schemas import EntryOut, OrderOut, WalletOut
 
 log = logging.getLogger("app.wallet")
 
@@ -64,6 +64,37 @@ class WalletService:
     def entries(self, user_id: int, limit: int = 50, offset: int = 0) -> list[EntryOut]:
         with self.engine.connect() as conn:
             return [EntryOut(**r) for r in repository.list_entries(conn, user_id, limit, offset)]
+
+    def my_orders(self, user_id: int, limit: int = 50, offset: int = 0) -> list[OrderOut]:
+        """Đơn của user kèm trạng thái hoàn tiền và mốc dự kiến vào ví (tính ở đây, UI không tự tính)."""
+        orders = self.orders.orders_for_user(user_id, limit, offset)
+        if not orders:
+            return []
+        with self.engine.connect() as conn:
+            totals = repository.order_totals_many(conn, [o.order_id for o in orders])
+        hold_at = self.platform.resolver("hold_days")
+        return [self._order_out(o, totals.get(o.order_id, {}), hold_at) for o in orders]
+
+    @staticmethod
+    def _order_out(o, t: dict, hold_at) -> OrderOut:
+        accrual, cancelled, released = t.get("accrual", 0), t.get("cancel", 0), t.get("release", 0)
+        clawed = t.get("reverse", 0) + t.get("adjust", 0)
+        pending = accrual - cancelled - released
+        if released > 0 and clawed > 0:
+            state, refund = "reversed", 0
+        elif released > 0:
+            state, refund = "available", released
+        elif pending > 0:
+            state, refund = "pending", pending
+        elif cancelled > 0:
+            state, refund = "cancelled", 0
+        else:
+            state, refund = "none", 0
+        expected = None
+        if state == "pending" and o.status == "COMPLETED" and o.completed_at is not None:
+            expected = o.completed_at + timedelta(days=hold_at(o.completed_at))
+        return OrderOut(id=o.order_id, order_ref=o.order_sn[-4:], status=o.status, purchased_at=o.purchase_time,
+                        refund_vnd=refund, refund_state=state, expected_release_at=expected)
 
     # ---------- chốt sổ ----------
     def sync_is_healthy(self) -> bool:

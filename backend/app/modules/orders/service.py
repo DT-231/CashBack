@@ -165,6 +165,15 @@ class AttributedOrder:
 
 
 @dataclass(frozen=True)
+class UserOrder:
+    order_id: int
+    order_sn: str
+    status: str
+    purchase_time: datetime | None
+    completed_at: datetime | None
+
+
+@dataclass(frozen=True)
 class SyncHealth:
     result: str                      # ok | partial | failed
     finished_at: datetime
@@ -180,6 +189,11 @@ class OrderReader:
         with self.engine.connect() as conn:
             rows = repository.attributed_orders(conn, after_id, limit, recent_days)
         return [AttributedOrder(r["id"], r["user_id"], r["status"], r["commission_micro"], r["completed_at"]) for r in rows]
+
+    def orders_for_user(self, user_id: int, limit: int = 50, offset: int = 0) -> list[UserOrder]:
+        with self.engine.connect() as conn:
+            rows = repository.user_orders(conn, user_id, limit, offset)
+        return [UserOrder(r["id"], r["order_sn"], r["status"], r["purchase_time"], r["completed_at"]) for r in rows]
 
     def sync_health(self) -> SyncHealth | None:
         """Lần đồng bộ đơn đã kết thúc gần nhất (None nếu chưa từng sync)."""

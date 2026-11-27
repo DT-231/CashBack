@@ -20,7 +20,7 @@ Quyền: `public`, `member`, `staff`, `admin`, `agent`.
 | POST | `/links` | member | `{url}` → `{code, go_url, direct_url, product:{name,shop_id,item_id}}` |
 | GET | `/me/links` | member | Danh sách link + số click |
 | GET | `/me/clicks?from=&to=` | member | Lịch sử click |
-| GET | `/me/orders` | member | Đơn của tôi + trạng thái |
+| GET | `/me/orders?limit=&offset=` | member | Đơn của tôi (mới nhất trước): `{id, order_ref (4 ký tự cuối), status, product_name (null), purchased_at, refund_vnd, refund_state: none\|pending\|available\|cancelled\|reversed, expected_release_at}`. `expected_release_at` chỉ có khi đơn `COMPLETED` và tiền còn chờ = hoàn tất + `hold_days` có hiệu lực lúc hoàn tất; do backend tính, UI không tự tính. Không bao giờ trả đơn của người khác hay đơn mồ côi |
 | GET | `/me/wallet` | member | `{pending_vnd, available_vnd, held_vnd, share_pct}` |
 | GET | `/me/wallet/entries` | member | Sổ cái của tôi |
 | POST | `/me/bank-accounts` | member | Thêm tài khoản nhận |

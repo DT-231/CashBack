@@ -90,6 +90,14 @@ def attributed_orders(conn: Connection, after_id: int, limit: int, recent_days: 
         {"a": after_id, "d": recent_days, "l": limit}).mappings().all()
 
 
+def user_orders(conn: Connection, user_id: int, limit: int, offset: int):
+    """Đơn của MỘT user (mới nhất trước). Không bao giờ trả đơn của người khác hay đơn mồ côi (user_id NULL)."""
+    return conn.execute(text(
+        "SELECT id, order_sn, status, purchase_time, completed_at FROM shopee_orders WHERE user_id = :u "
+        "ORDER BY COALESCE(purchase_time, created_at) DESC, id DESC LIMIT :l OFFSET :o"),
+        {"u": user_id, "l": limit, "o": offset}).mappings().all()
+
+
 def latest_finished_run(conn: Connection):
     return conn.execute(text("SELECT result, finished_at FROM sync_runs WHERE kind = 'orders' "
                              "AND finished_at IS NOT NULL ORDER BY id DESC LIMIT 1")).mappings().first()
