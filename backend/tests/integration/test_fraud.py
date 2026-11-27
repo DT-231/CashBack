@@ -102,8 +102,11 @@ def test_shared_ip_ignores_old_clicks_and_missing_hashes(api, pg, settings):
     assert all(flags(pg, u) == [] for u in users)
     with pg.begin() as c:
         c.execute(text("INSERT INTO clicks(link_id, sub_id, ip_hash) SELECT id, 'x', NULL FROM links WHERE user_id = :u"), {"u": users[2]})
+    for u in users[:2]:
+        with pg.begin() as c:
+            c.execute(text("INSERT INTO clicks(link_id, sub_id, ip_hash) SELECT id, 'x', NULL FROM links WHERE user_id = :u"), {"u": u})
     FraudService(settings, pg).scan()
-    assert all(flags(pg, u) == [] for u in users)                                   # ip_hash NULL không được tính
+    assert all(flags(pg, u) == [] for u in users)                                   # 3 chủ link cùng click với ip_hash NULL: vẫn KHÔNG phải "cùng IP"
 
 
 def test_high_cancel_rate_thresholds_and_window(api, pg, settings):
@@ -225,3 +228,11 @@ def test_worker_fraud_scan_command_prints_json(monkeypatch, capsys, pg):
     assert main_worker.main(["fraud-scan"]) == 0
     out = json.loads(capsys.readouterr().out)
     assert set(out["fraud"]) == {"created", "updated", "suppressed", "by_rule"}
+
+
+def test_service_rejects_invalid_status_before_touching_the_db(settings, pg):
+    from app.core.errors import AppError
+    from app.modules.audit.service import Actor, AuditContext
+    with pytest.raises(AppError) as e:
+        FraudService(settings, pg).resolve(1, "open", "ghi chú", audit=AuditContext(settings, Actor(9, "admin"), None))
+    assert e.value.code == "invalid_status"
