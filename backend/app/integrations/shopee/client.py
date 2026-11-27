@@ -209,17 +209,34 @@ class ShopeeClient:
 
     # ---------- kiểm tra link ----------
     def check_link(self, link: str, timeout: int = 20) -> dict:
-        """Không theo redirect: lấy Location của 301 để xem Shopee đã nhận tracking (uls_trackid) chưa."""
-        from urllib.parse import parse_qs, urlparse
-        try:
-            r = requests.get(link, allow_redirects=False, timeout=timeout, headers={
-                "User-Agent": self._ua, "Accept-Language": "vi-VN,vi;q=0.9,en;q=0.8",
-                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"})
-        except requests.RequestException as e:
-            raise ShopeeError(f"Không gọi được Shopee: {type(e).__name__}") from e
-        location = r.headers.get("Location")
-        target = location or link
+        """Đi tối đa 3 hop (không tự theo redirect) qua proxy cấu hình; dừng khi thấy `uls_trackid`.
+
+        Link rút gọn (shope.ee) không có trackid ở hop đầu nên phải đi tiếp.
+        `status`/`redirect` là của hop ĐẦU (giữ hành vi cũ); `final_*` là của hop cuối.
+        """
+        from urllib.parse import parse_qs, urljoin, urlparse
+        sess = self._session({"User-Agent": self._ua, "Accept-Language": "vi-VN,vi;q=0.9,en;q=0.8",
+                              "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"})
+        url, hops = link, []
+        first_status = first_location = final_status = None
+        target, tracked = link, False
+        for _ in range(3):
+            hops.append(url)
+            try:
+                r = sess.get(url, allow_redirects=False, timeout=timeout)
+            except requests.RequestException as e:
+                raise ShopeeError(f"Không gọi được Shopee: {type(e).__name__}") from e
+            location = r.headers.get("Location")
+            if first_status is None:
+                first_status, first_location = r.status_code, location
+            final_status = r.status_code
+            target = urljoin(url, location) if location else url
+            tracked = bool(parse_qs(urlparse(target).query).get("uls_trackid"))
+            if tracked or not location or not (300 <= r.status_code < 400):
+                break
+            url = target
         q = parse_qs(urlparse(target).query)
-        return {"status": r.status_code, "redirect": location, "tracked": bool(q.get("uls_trackid")),
+        return {"status": first_status, "redirect": first_location, "tracked": tracked,
                 "utm_source": (q.get("utm_source") or [None])[0], "utm_medium": (q.get("utm_medium") or [None])[0],
-                "utm_content": (q.get("utm_content") or [None])[0], "final_host": urlparse(target).netloc}
+                "utm_content": (q.get("utm_content") or [None])[0], "final_host": urlparse(target).netloc,
+                "hops": hops, "final_url": target, "final_status": final_status}

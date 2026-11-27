@@ -181,10 +181,42 @@ def test_snapshot_uses_one_window_for_all_three_calls(monkeypatch):
 
 
 def test_check_link_reads_location(monkeypatch):
-    monkeypatch.setattr("requests.get", lambda *a, **k: Resp(301, headers={
+    patch_get(monkeypatch, lambda *a, **k: Resp(301, headers={
         "Location": "https://shopee.vn/product/1/2?utm_source=an_1&utm_content=x&uls_trackid=abc"}))
     r = make().check_link("https://shopee.vn/universal-link/product/1/2")
     assert r["status"] == 301 and r["tracked"] and r["utm_source"] == "an_1" and r["final_host"] == "shopee.vn"
+    assert r["hops"] == ["https://shopee.vn/universal-link/product/1/2"] and r["final_status"] == 301
+
+
+def test_check_link_follows_short_link_until_trackid_and_uses_proxy(monkeypatch):
+    seq = {"https://shope.ee/abc": Resp(301, headers={"Location": "https://shopee.vn/product/1/2?utm_source=an_9&utm_content=k&uls_trackid=xyz"})}
+    first = Resp(301, headers={"Location": "https://shope.ee/abc"})
+    seen = []
+
+    def fake(self, url, **k):
+        seen.append((url, dict(self.proxies), k.get("allow_redirects")))
+        return seq.get(url, first)
+    monkeypatch.setattr("requests.Session.get", fake)
+    r = make(shopee_proxy="http://p:1").check_link("https://shopee.vn/universal-link/product/1/2")
+    assert r["tracked"] is True and len(r["hops"]) == 2 and r["hops"][1] == "https://shope.ee/abc"
+    assert r["status"] == 301 and r["redirect"] == "https://shope.ee/abc"   # hop đầu giữ hành vi cũ
+    assert r["utm_source"] == "an_9" and r["final_host"] == "shopee.vn" and "uls_trackid=xyz" in r["final_url"]
+    assert seen[0][1] == {"http": "http://p:1", "https": "http://p:1"} and seen[0][2] is False
+
+
+def test_check_link_stops_after_three_hops_and_reports_untracked(monkeypatch):
+    n = []
+    patch_get(monkeypatch, lambda *a, **k: n.append(1) or Resp(302, headers={"Location": "https://x.example/next"}))
+    r = make().check_link("https://shopee.vn/a")
+    assert len(n) == 3 and r["tracked"] is False and len(r["hops"]) == 3
+
+
+def test_check_link_network_error_is_shopee_error(monkeypatch):
+    def boom(*a, **k):
+        raise __import__("requests").ConnectionError("down")
+    patch_get(monkeypatch, boom)
+    with pytest.raises(ShopeeError):
+        make().check_link("https://shopee.vn/a")
 
 
 # ---------- fake ----------

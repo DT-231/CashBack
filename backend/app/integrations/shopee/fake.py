@@ -25,4 +25,5 @@ class FakeShopeeClient:
 
     def check_link(self, link: str, timeout: int = 20) -> dict:
         return {"status": 301, "redirect": link + "&uls_trackid=mock", "tracked": True,
-                "utm_source": None, "utm_medium": None, "utm_content": None, "final_host": "shopee.vn"}
+                "utm_source": None, "utm_medium": None, "utm_content": None, "final_host": "shopee.vn",
+                "hops": [link], "final_url": link + "&uls_trackid=mock", "final_status": 301}
