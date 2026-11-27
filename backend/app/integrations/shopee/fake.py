@@ -4,7 +4,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from app.integrations.shopee.client import DashboardSnapshot, window
+from app.integrations.shopee.client import DashboardSnapshot, OrderBatch, window
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -22,6 +22,9 @@ class FakeShopeeClient:
         return DashboardSnapshot(window(days), _load("revenue_dashboard.json")["data"],
                                  _load("revenue_clicks.json")["data"]["list"],
                                  _load("revenue_orders.json")["data"]["list"])
+
+    def order_batch(self, days: int = 60) -> OrderBatch:
+        return OrderBatch(window(days), _load("revenue_orders.json")["data"]["list"], True)
 
     def check_link(self, link: str, timeout: int = 20) -> dict:
         return {"status": 301, "redirect": link + "&uls_trackid=mock", "tracked": True,

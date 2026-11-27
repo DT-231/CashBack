@@ -40,6 +40,13 @@ class DashboardSnapshot:
     orders: list[dict] = field(default_factory=list)
 
 
+@dataclass
+class OrderBatch:
+    window: tuple[int, int]
+    rows: list[dict]
+    complete: bool = True              # False = chưa lấy hết (cắt phân trang): không dùng để chuyển tiền
+
+
 def window(days: int, now: datetime | None = None) -> tuple[int, int]:
     """[đầu ngày (days-1) ngày trước .. hết hôm nay] theo giờ VN, ra epoch giây."""
     now = now or datetime.now(VN_TZ)
@@ -224,6 +231,10 @@ class ShopeeClient:
         raise ShopeeError("unreachable")
 
     def _paged(self, path: str, params: dict, max_pages: int = 40) -> list[dict]:
+        return self._paged_ex(path, params, max_pages)[0]
+
+    def _paged_ex(self, path: str, params: dict, max_pages: int = 40) -> tuple[list[dict], bool]:
+        """(các dòng, complete). complete=False khi dừng vì hết `max_pages` mà vẫn còn dữ liệu: caller KHÔNG được coi là đủ."""
         out: list[dict] = []
         page = 1
         while page <= max_pages:
@@ -231,15 +242,22 @@ class ShopeeClient:
             rows = data.get("list") or []
             out.extend(rows)
             if not rows:
-                break
+                return out, True
             total = data.get("total_count")
             # Chỉ tin total_count khi có (response thiếu trường này không được coi là "đã đủ")
             if isinstance(total, int) and total > 0 and len(out) >= total:
-                break
+                return out, True
             if len(rows) < PAGE_SIZE:      # trang cuối
-                break
+                return out, True
             page += 1
-        return out
+        return out, False
+
+    def order_batch(self, days: int = 60) -> OrderBatch:
+        """Đơn trong `days` ngày (theo purchase_time), kèm cờ complete. Không cache: dùng cho đồng bộ tiền."""
+        s, e = window(days)
+        rows, complete = self._paged_ex("/api/v3/report/list",
+                                        {"purchase_time_s": s, "purchase_time_e": e, "version": 1})
+        return OrderBatch((s, e), rows, complete)
 
     def dashboard_snapshot(self, days: int = 7) -> DashboardSnapshot:
         """Một cửa sổ thời gian duy nhất cho cả 3 nguồn (tránh lệch mốc qua nửa đêm); có cache TTL."""

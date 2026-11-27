@@ -441,3 +441,40 @@ def test_web_cookie_only_whitespace_counts_as_missing(monkeypatch):
     calls = []
     patch_get(monkeypatch, lambda *a, **k: calls.append(1) or Resp(403))
     assert "Thiếu SHOPEE_WEB_COOKIE" in make(web="Cookie:  ").search("x")["error"] and calls == []
+
+
+# ---------- T-020: báo cáo đơn có cờ "đủ dữ liệu" ----------
+def test_paged_ex_reports_incomplete_when_cut_by_max_pages(monkeypatch):
+    c = make()
+    monkeypatch.setattr(c, "_get", lambda p, q: {"data": {"total_count": 10**9, "list": [{"i": 1}] * 100}})
+    rows, complete = c._paged_ex("/x", {}, max_pages=3)
+    assert len(rows) == 300 and complete is False
+
+
+def test_paged_ex_complete_on_last_page_total_reached_or_empty(monkeypatch):
+    c = make()
+    full = [{"i": 1}] * 100
+    _pages(monkeypatch, c, [full, [{"i": 1}] * 7])
+    assert c._paged_ex("/x", {})[1] is True                       # trang cuối ngắn
+    _pages(monkeypatch, c, [full, full], total=200)
+    assert c._paged_ex("/x", {}) == (full + full, True)           # đủ total_count
+    _pages(monkeypatch, c, [])
+    assert c._paged_ex("/x", {}) == ([], True)
+
+
+def test_order_batch_is_not_cached_and_carries_complete_flag(monkeypatch):
+    c = make(ttl=300)
+    calls = []
+
+    def fake(path, params):
+        calls.append(path)
+        return {"code": 0, "data": {"total_count": 1, "list": [{"orders": []}]}}
+    monkeypatch.setattr(c, "_get", fake)
+    a, b = c.order_batch(60), c.order_batch(60)
+    assert a.complete and len(a.rows) == 1 and len(calls) == 2    # không cache: mỗi lần sync phải lấy mới
+    assert c.order_batch(60).window[0] < c.order_batch(60).window[1]
+
+
+def test_fake_client_order_batch_comes_from_fixture():
+    b = FakeShopeeClient().order_batch(30)
+    assert b.complete and {o["order_sn"] for r in b.rows for o in r["orders"]} == {"SN001", "SN002"}
