@@ -370,7 +370,9 @@ def test_service_layer_also_refuses_non_admin_actor(settings, pg):
         for call in (lambda: PayoutService(settings(), pg).approve(wid, audit=ctx),
                      lambda: PayoutService(settings(), pg).view_account(wid, audit=ctx),
                      lambda: PayoutService(settings(), pg).mark_paid(wid, "FT999999", audit=ctx),
-                     lambda: PayoutService(settings(), pg).reject(wid, "ly do", audit=ctx)):
+                     lambda: PayoutService(settings(), pg).reject(wid, "ly do", audit=ctx),
+                     lambda: PayoutService(settings(), pg).fail(wid, "ly do", audit=ctx),
+                     lambda: PayoutService(settings(), pg).export_csv(audit=ctx)):
             with pytest.raises(Forbidden):
                 call()
 
