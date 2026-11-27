@@ -6,15 +6,14 @@ Dự án: web hoàn tiền Shopee (60% hoa hồng cho user) + Tool API cho Muse 
 - Thư mục gốc: service cũ `shopee-link-api` (Python, đã verify một phần). **Không đổi hành vi `affiliate.make_link`**.
 - `backend/app/core/subid.py`: codec `sub_id` v1 (đã chuyển từ `packages/core`). Test trong `backend/tests/unit`.
 - `docs/`, `backlog/` (`issues.csv`, `tasks/<id>.md` khi giao Codex).
-- `apps/api`: Alembic + schema Postgres (T-005). `infra/docker-compose.yml`: db, migrate, seed.
-- Sẽ thêm: `apps/web`, `apps/api`, `services/{link-api,sync-worker}`, `infra/`.
+- `backend/migrations`: Alembic + schema Postgres (T-005, 0002 index). `infra/docker-compose.yml`: db, migrate, seed.
+- Sẽ thêm: `frontend/`, `edge/go-worker/`, job nền (`app/jobs`).
 
 ## Lệnh test (phải pass trước khi báo xong)
 ```
 make test                                     # pytest backend/tests + 2 bộ unittest cũ (cần `make venv` một lần)
 python3 test_make_link_regression.py          # hồi quy make_link (lớp tương thích)
-# schema DB: docker compose -f infra/docker-compose.yml up -d db migrate seed, rồi
-cd apps/api && DATABASE_URL=postgresql+psycopg://cashback:cashback_dev@127.0.0.1:5433/cashback python -m unittest discover -s tests
+make db-up && make test-db                    # schema + migration up/down (cần Docker)
 ```
 
 ## Quy ước sub_id v1 (`docs/07-du-lieu.md`)

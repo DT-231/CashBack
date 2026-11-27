@@ -5,7 +5,7 @@ PY     := $(VENV)/bin/python
 export MOCK ?= 1
 DB_URL ?= postgresql+psycopg://cashback:cashback_dev@127.0.0.1:5433/cashback
 
-.PHONY: venv test test-db lint fmt cov
+.PHONY: venv test db-up test-db lint fmt cov
 
 venv:
 	python3 -m venv $(VENV)
@@ -17,8 +17,11 @@ test:
 	$(PY) test_make_link_regression.py
 
 # Cần Postgres: docker compose -f infra/docker-compose.yml up -d db migrate seed
+db-up:
+	docker compose -f infra/docker-compose.yml up -d --build db migrate seed
+
 test-db:
-	cd apps/api && DATABASE_URL=$(DB_URL) ../../$(PY) -m unittest discover -s tests
+	DATABASE_URL=$(DB_URL) $(PY) -m pytest backend/tests/integration
 
 lint:
 	$(VENV)/bin/ruff check --config backend/pyproject.toml .
@@ -29,4 +32,4 @@ fmt:
 cov:
 	$(VENV)/bin/coverage run --source=. test_make_link_regression.py
 	$(VENV)/bin/coverage run -a --source=. -m pytest backend/tests
-	$(VENV)/bin/coverage report --omit='test_*,*/tests/*,apps/*'
+	$(VENV)/bin/coverage report --omit='test_*,*/tests/*'

@@ -1,5 +1,5 @@
-"""Test schema trên Postgres thật. Cần DATABASE_URL đã migrate + seed.
-Chạy: DATABASE_URL=postgresql+psycopg://cashback:cashback_dev@127.0.0.1:5433/cashback python -m unittest discover -s tests
+"""Test schema trên Postgres thật. Cần DB đã migrate + seed: `make db-up` rồi `make test-db`.
+Tự bỏ qua (skip) nếu không kết nối được Postgres.
 """
 import os
 import unittest
@@ -7,13 +7,16 @@ import unittest
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import DBAPIError, IntegrityError
 
-engine = create_engine(os.environ["DATABASE_URL"])
+from tests.integration.pg import DB_URL, pg_available  # noqa: E402
+
+engine = create_engine(DB_URL)
 
 
 def uid(c, email="member1@example.test"):
     return c.execute(text("SELECT id FROM users WHERE email=:e"), {"e": email}).scalar_one()
 
 
+@unittest.skipUnless(pg_available(), "không có Postgres (make db-up)")
 class SchemaTests(unittest.TestCase):
     def test_seed(self):
         with engine.connect() as c:

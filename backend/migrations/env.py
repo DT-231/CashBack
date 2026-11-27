@@ -1,9 +1,11 @@
-import os
-
 from alembic import context
 from sqlalchemy import create_engine
 
-url = os.environ["DATABASE_URL"]
+from app.core.config import load_settings
+
+url = load_settings().database_url
+if not url:
+    raise SystemExit("Thiếu DATABASE_URL")
 
 
 def run_migrations_online():

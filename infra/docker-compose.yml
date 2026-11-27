@@ -18,7 +18,7 @@ services:
       retries: 20
 
   migrate:
-    build: ../apps/api
+    build: ../backend
     command: alembic upgrade head
     environment:
       DATABASE_URL: postgresql+psycopg://cashback:cashback_dev@db:5432/cashback
@@ -27,7 +27,7 @@ services:
         condition: service_healthy
 
   seed:
-    build: ../apps/api
+    build: ../backend
     command: python scripts/seed.py
     environment:
       DATABASE_URL: postgresql+psycopg://cashback:cashback_dev@db:5432/cashback

@@ -1,11 +1,16 @@
 """Seed dữ liệu DEV: 1 admin, 2 member, cấu hình mặc định. Mật khẩu lấy từ SEED_PASSWORD."""
+import _bootstrap  # noqa: F401
 import json
 import os
 
 from argon2 import PasswordHasher
 from sqlalchemy import create_engine, text
 
-url = os.environ["DATABASE_URL"]
+from app.core.config import load_settings
+
+url = load_settings().database_url
+if not url:
+    raise SystemExit("Thiếu DATABASE_URL")
 pw = os.environ.get("SEED_PASSWORD")
 if not pw:
     raise SystemExit("Thiếu SEED_PASSWORD (chỉ dùng cho dev)")
