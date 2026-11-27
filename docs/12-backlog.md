@@ -351,6 +351,7 @@ Ghi chú: các mục trên là điều kiện **mở cho người ngoài**. Dùn
 ## E9 — Chống gian lận và khiếu nại  (13 điểm)
 
 ### T-053: Là staff, tôi muốn phát hiện tự mua, cùng IP/thiết bị, hủy bất thường
+- **Backend đã làm (2026-11-28, `autopilot/main`)**: 3 luật (cùng ip_hash, tỷ lệ hủy/trả, click dồn), lệnh `python -m app.main_worker fraud-scan`, admin xem/xử lý cờ. **Chưa làm:** luật theo UA/thiết bị (chưa có dữ liệu), luật "tự mua" (chủ tài khoản = người mua: không phát hiện được từ phía ta, xem R-08), "giữ pending" tự động (cố ý không làm: sai dương tính), giao diện, lịch chạy `fraud-scan` định kỳ (cron của PO).
 - Loại: feature · 8 điểm · Should · Sprint 5 · Owner: codex · Phụ thuộc: T-021
 - Acceptance criteria:
   - Given nhiều tài khoản cùng ip_hash/UA trong 24h When quét Then tạo fraud_flag

@@ -12,6 +12,7 @@ from app.core.db import make_engine
 from app.integrations.telegram import build_notifier
 from app.core.logging import configure_logging
 from app.integrations.shopee import build_client
+from app.modules.fraud.service import FraudService
 from app.modules.orders.service import OrderSync
 from app.modules.shopee_session.service import ShopeeSessionService
 from app.modules.wallet.service import WalletService
@@ -19,7 +20,7 @@ from app.modules.wallet.service import WalletService
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="app.main_worker")
-    ap.add_argument("command", choices=["sync-once", "settle-once", "run-once"])
+    ap.add_argument("command", choices=["sync-once", "settle-once", "run-once", "fraud-scan"])
     ap.add_argument("--days", type=int, default=None, help="1..366 (mặc định SYNC_DAYS)")
     a = ap.parse_args(argv)
     engine = None
@@ -36,6 +37,8 @@ def main(argv=None) -> int:
             if cookie:
                 sessions.record_result(sync.result, sync.blocked, build_notifier(s))
             out["sync"] = sync.__dict__
+        if a.command == "fraud-scan":
+            out["fraud"] = FraudService(s, engine).scan().__dict__
         if a.command in ("settle-once", "run-once"):
             out["settle"] = WalletService(s, engine).settle().__dict__
     except ConfigError as e:

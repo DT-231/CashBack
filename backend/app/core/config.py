@@ -83,6 +83,13 @@ class Settings(BaseSettings):
     rl_withdraw_per_hour: int = Field(default=5, ge=1)      # yêu cầu rút theo user
     rl_bank_add_per_hour: int = Field(default=5, ge=1)      # thêm tài khoản ngân hàng theo user
 
+    # --- phát hiện gian lận (T-053): chỉ tạo CỜ cho admin xem, không tự khóa/giữ tiền ---
+    fraud_shared_ip_users: int = Field(default=3, ge=2)           # >= chừng này chủ link khác nhau có click từ cùng một ip_hash trong 7 ngày
+    fraud_cancel_min_orders: int = Field(default=5, ge=1)         # chỉ xét user có ít nhất chừng này đơn trong 60 ngày
+    fraud_cancel_rate_pct: int = Field(default=50, ge=1, le=100)  # hủy + trả hàng >= chừng này % số đơn
+    fraud_burst_clicks_per_hour: int = Field(default=60, ge=2)    # >= chừng này click/giờ từ cùng ip_hash vào cùng một link
+    fraud_dismiss_cooldown_days: int = Field(default=30, ge=0)    # cờ bị bỏ qua thì không tạo lại cùng (user, rule) trong chừng này ngày
+
     # --- email giao dịch (T-011): thiếu SMTP_HOST/SMTP_FROM = không gửi ---
     smtp_host: str = ""
     smtp_port: int = 587
