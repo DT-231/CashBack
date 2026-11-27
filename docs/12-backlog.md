@@ -5,20 +5,25 @@ Nguồn dữ liệu máy đọc: `backlog/issues.csv` (cùng nội dung).
 
 ## Điều kiện mở đăng ký cho người ngoài
 
-**T-061 (đưa web ra Internet cho người ngoài) không được bắt đầu khi chưa tick đủ mục dưới.** Người duyệt từng mục là PO; Claude cập nhật dấu tick khi có bằng chứng (link commit, ghi chú, ảnh chụp).
+**T-061 (đưa web ra Internet cho người ngoài) không được bắt đầu khi chưa có đủ dòng "Xong".** Người duyệt từng mục là PO; Claude cập nhật bảng khi có bằng chứng (commit, ghi chú, ảnh chụp). Cập nhật lần cuối: 2026-11-28.
 
-- [ ] **T-017 xong** (X-Visitor-IP + bí mật chung, kèm T-016 đã merge): giới hạn tốc độ tính đúng theo từng khách qua BFF
-- [ ] **Có domain riêng** trên Cloudflare DNS (Tunnel hostname cố định, cookie `__Host-`, `WEB_ORIGIN`; xem `docs/06` mục 0). Tunnel nhanh `trycloudflare` không được dùng
-- [ ] **Domain đã được đăng ký làm kênh quảng bá** trong hồ sơ Affiliate Shopee (tab "Thông tin truyền thông"), và **tên domain không chứa thương hiệu Shopee** (PO kiểm điều khoản về dùng tên/nhãn hiệu; dùng tên có chữ "shopee" có thể bị coi là mạo danh)
-- [ ] **Đơn mua thử thật khớp sub_id**: làm theo `docs/runbooks/live-attribution-test.md`; `utm_content` có chữ ký còn nguyên và giải mã `ok`
-- [ ] **PO đã xác nhận với Shopee (bằng văn bản) về mô hình cashback** (rủi ro R-02): chia lại hoa hồng cho người dùng có được phép không, cần đăng ký kênh nào
-- [ ] **Trang Điều khoản và Chính sách quyền riêng tư** (T-064): bản nháp, **cần tư vấn pháp lý** trước khi dùng thật (R-06, R-17)
-- [ ] **`audit_logs` xong** (phần còn thiếu của T-013; đã làm ở nhánh `task/audit-logs`, chờ PO duyệt merge): ghi ai/hành động/đối tượng/thời điểm/IP băm cho thao tác admin và tiền
-- [ ] **Admin bật đăng nhập hai lớp (TOTP) trước khi bật rút tiền thật** (T-019; duyệt/chi trả/xem số tài khoản chỉ admin, nên tài khoản admin là điểm yếu nhất)
-- [ ] **`BANK_ENC_KEY` đã sao lưu NGOÀI `.env`** (hai nơi, tách bản sao lưu DB); mất khóa = không trả được cho ai (`docs/runbooks/withdrawals.md`)
-- [ ] **Ứng dụng chạy bằng tài khoản DB riêng `cashback_app`** (không sở hữu bảng, không TRUNCATE, không sửa/xóa sổ cái và `audit_logs`): `infra/db/app-role.sql`, `docs/runbooks/db-roles.md`
+**Cờ `WITHDRAWALS_ENABLED=0` ở MỌI môi trường (dev, thử nghiệm, production) cho tới khi hết bảng này** (PO, 2026-11-28). Khởi động bật cờ này còn bị từ chối nếu khóa mã hóa yếu, admin chưa bắt buộc TOTP, hoặc user DB là superuser/chủ bảng.
 
-Ghi chú: các mục trên là điều kiện **mở cho người ngoài**. Dùng nội bộ (chỉ PO và người quen, không quảng bá) vẫn có thể thử trên máy mình bằng tunnel nhanh.
+| # | Mục | Trạng thái | Ai làm | Ghi chú / bằng chứng |
+|---|---|---|---|---|
+| 1 | T-017 xong (X-Visitor-IP + bí mật chung; kèm T-016) | **Xong** | Claude | merge `f6b29c8`, `b437d17` |
+| 2 | Có domain riêng trên Cloudflare DNS (Tunnel hostname cố định, cookie `__Host-`, `WEB_ORIGIN`); không dùng tunnel nhanh | Chưa | PO | `docs/06` mục 0 |
+| 3 | Domain đã đăng ký làm kênh quảng bá trong hồ sơ Affiliate Shopee, và tên domain không chứa thương hiệu Shopee | Chưa | PO | PO kiểm điều khoản về dùng tên/nhãn hiệu |
+| 4 | Đơn mua thử thật khớp sub_id (`utm_content` còn nguyên chữ ký, giải mã `ok`) | Chưa | PO mua và gửi dữ liệu; Claude giải mã | `docs/runbooks/live-attribution-test.md` |
+| 5 | PO xác nhận với Shopee (bằng văn bản) về mô hình cashback (R-02) | Chưa | PO | |
+| 6 | Trang Điều khoản và Chính sách quyền riêng tư: bản nháp rồi tư vấn pháp lý (R-06, R-17) | Chưa (T-064) | Claude viết nháp; PO đưa luật sư | |
+| 7 | `audit_logs` xong (ai, hành động, đối tượng, thời điểm, IP băm; không mật khẩu/token/số tài khoản) | **Xong** | Claude | merge `d8073c0` |
+| 8 | Admin bật đăng nhập hai lớp TOTP trước khi bật rút tiền thật (T-019) | Mã xong, chờ PO duyệt merge (`task/T-019`); admin bật thật: **Chưa** | Claude (mã); PO (bật TOTP cho tài khoản admin thật) | `docs/runbooks/admin-mfa.md` |
+| 9 | `BANK_ENC_KEY` sao lưu NGOÀI `.env` (hai nơi, tách bản sao lưu DB) | Chưa | PO | `docs/runbooks/withdrawals.md` |
+| 10 | Ứng dụng chạy bằng tài khoản DB riêng `cashback_app` (không sở hữu bảng, không TRUNCATE, không sửa/xóa sổ cái và `audit_logs`) | Script, test, kiểm tra lúc khởi động: **xong** (T-040); triển khai thật: **Chưa** | Claude (script/test); PO (tạo role, đổi `DATABASE_URL` của API) | `infra/db/app-role.sql`, `docs/runbooks/db-roles.md` |
+| 11 | T-041 giao diện rút tiền (người dùng) và admin chi trả hoạt động (kể cả CSV) | Backend/BFF xong (`prep/T-041`); giao diện: Codex đang làm | Claude (backend/BFF); Codex (UI) | `backlog/tasks/T-041a.md`, `T-041b.md` |
+
+Ghi chú: các mục trên là điều kiện **mở cho người ngoài**. Dùng nội bộ (chỉ PO và người quen, không quảng bá) vẫn có thể thử trên máy mình bằng tunnel nhanh, với `WITHDRAWALS_ENABLED=0`.
 
 ## E0 — Nền tảng, hạ tầng, vận hành  (45 điểm)
 
