@@ -263,7 +263,7 @@ def test_secret_is_encrypted_bound_to_the_user_and_never_leaks(make, pg, caplog)
     for leak in (secret, *recovery, code(secret, clock), code(secret, clock, 1)):
         assert leak not in blob and leak not in dump, leak
     actions = [a["action"] for a in audit(pg, uid)]
-    assert actions[:3] == ["auth.register", "mfa.setup", "mfa.enable"] and "mfa.verify" in actions and "mfa.verify_failed" in actions
+    assert actions[:4] == ["auth.register", "auth.login", "mfa.setup", "mfa.enable"] and "mfa.verify" in actions and "mfa.verify_failed" in actions
 
 
 def test_failed_attempts_are_audited_and_rate_limited(make, pg):
@@ -316,3 +316,12 @@ def test_verify_before_enabling_is_a_state_error_and_never_issues_tokens(api, pg
     r = client.post("/api/v1/auth/mfa/verify", headers=h, json={"code": code(secret, clock)})
     assert r.status_code == 409 and r.json()["error"]["code"] == "mfa_state" and "access_token" not in r.text
     assert admin_get(client, h).status_code == 403
+
+
+def test_admin_login_is_audited_with_the_admin_role(api, pg):
+    client, _, _ = api
+    uid, _, _, _ = user(client, pg, "admin")                 # user() đăng nhập sau khi nâng quyền
+    logins = [a for a in audit(pg, uid) if a["action"] == "auth.login"]
+    assert len(logins) == 1
+    with pg.connect() as c:
+        assert c.execute(text("SELECT actor_role FROM audit_logs WHERE action = 'auth.login' AND actor_id = :u"), {"u": uid}).scalar_one() == "admin"
