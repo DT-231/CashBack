@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
 import { ApiError, api } from "@/lib/api-client";
 import type { LinkOut, UserLinkOut } from "@/lib/types";
 import { formatDateTime } from "@/lib/format";
@@ -20,6 +21,7 @@ function productName(product: { name: string | null; shop_id: number; item_id: n
 }
 
 export default function LinksPage() {
+  const router = useRouter();
   const [url, setUrl] = useState("");
   const [created, setCreated] = useState<LinkOut | null>(null);
   const [links, setLinks] = useState<UserLinkOut[]>([]);
@@ -28,11 +30,17 @@ export default function LinksPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [listError, setListError] = useState("");
+  const [hasMore, setHasMore] = useState(false);
+
+  function handleAuthError(cause: unknown) {
+    if (cause instanceof ApiError && cause.isAuth) { router.replace("/login"); return true; }
+    return false;
+  }
 
   async function loadFirst() {
     setListError("");
-    try { setLinks(await api.myLinks({ limit: LIMIT, offset: 0 })); }
-    catch (cause) { setListError(errorMessage(cause)); }
+    try { const first = await api.myLinks({ limit: LIMIT, offset: 0 }); setLinks(first); setHasMore(first.length === LIMIT); }
+    catch (cause) { if (!handleAuthError(cause)) setListError(errorMessage(cause)); }
     finally { setLoaded(true); }
   }
   useEffect(() => { void loadFirst(); }, []);
@@ -41,14 +49,14 @@ export default function LinksPage() {
     event.preventDefault(); if (busy) return;
     setBusy(true); setError(""); setCreated(null);
     try { setCreated(await api.createLink(url)); setUrl(""); await loadFirst(); }
-    catch (cause) { setError(errorMessage(cause)); }
+    catch (cause) { if (!handleAuthError(cause)) setError(errorMessage(cause)); }
     finally { setBusy(false); }
   }
   async function loadMore() {
     if (loadingMore) return;
     setLoadingMore(true); setListError("");
-    try { const more = await api.myLinks({ limit: LIMIT, offset: links.length }); setLinks((current) => [...current, ...more]); }
-    catch (cause) { setListError(errorMessage(cause)); }
+    try { const more = await api.myLinks({ limit: LIMIT, offset: links.length }); setLinks((current) => [...current, ...more]); setHasMore(more.length === LIMIT); }
+    catch (cause) { if (!handleAuthError(cause)) setListError(errorMessage(cause)); }
     finally { setLoadingMore(false); }
   }
 
@@ -68,7 +76,7 @@ export default function LinksPage() {
         <h3>{productName(link.product)}</h3><p>Số click: {link.clicks}</p><p>Ngày tạo: {formatDateTime(link.created_at)}</p>
         {link.go_url && <CopyButton value={link.go_url} />}
       </li>)}</ul>}
-      {links.length >= LIMIT && <Button type="button" disabled={loadingMore} onClick={loadMore}>{loadingMore ? "Đang tải…" : "Xem thêm"}</Button>}
+      {hasMore && <Button type="button" disabled={loadingMore} onClick={loadMore}>{loadingMore ? "Đang tải…" : "Xem thêm"}</Button>}
     </section>
   </main>;
 }

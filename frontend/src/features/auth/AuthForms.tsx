@@ -30,11 +30,15 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
     if (busy) return;
     if (registering && password.length < 10) { setError("Mật khẩu cần có ít nhất 10 ký tự"); return; }
     setBusy(true); setError("");
+    let registered = false;
     try {
-      if (registering) await api.register(email, password);
+      if (registering) { await api.register(email, password); registered = true; }
       await api.login(email, password);
       router.push("/links");
-    } catch (cause) { setError(message(cause, registering)); }
+    } catch (cause) {
+      if (registered) { setError("Tài khoản đã được tạo, vui lòng đăng nhập"); router.replace("/login"); return; }
+      setError(message(cause, registering));
+    }
     finally { setBusy(false); }
   }
 

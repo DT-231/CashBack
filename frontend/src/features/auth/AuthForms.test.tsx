@@ -3,7 +3,8 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const push = vi.fn();
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
+const replace = vi.fn();
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push, replace }) }));
 vi.mock("@/lib/api-client", () => ({ ApiError: class ApiError extends Error { constructor(public status: number, public code: string, message: string) { super(message); } }, api: { register: vi.fn(), login: vi.fn() } }));
 import { api } from "@/lib/api-client";
 import { AuthForm } from "./AuthForms";
@@ -41,5 +42,55 @@ describe("AuthForm", () => {
     fireEvent.change(screen.getByLabelText("Mật khẩu"), { target: { value: "anything" } });
     fireEvent.click(screen.getByRole("button", { name: "Đăng nhập" }));
     expect(await screen.findByRole("alert")).toHaveProperty("textContent", "Email hoặc mật khẩu không đúng");
+  });
+
+  it("chỉ gửi một lần khi bấm đăng nhập liên tiếp lúc API đang chờ", async () => {
+    let resolve!: (value: { ok: true }) => void;
+    vi.mocked(api.login).mockReturnValue(new Promise((r) => { resolve = r; }));
+    render(<AuthForm mode="login" />);
+    fireEvent.change(screen.getByLabelText("Email"), { target: { value: "a@b.com" } });
+    fireEvent.change(screen.getByLabelText("Mật khẩu"), { target: { value: "password" } });
+    const button = screen.getByRole("button", { name: "Đăng nhập" });
+    fireEvent.click(button); fireEvent.click(button);
+    expect(api.login).toHaveBeenCalledTimes(1);
+    expect(button).toHaveProperty("disabled", true);
+    resolve({ ok: true });
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/links"));
+  });
+
+  it("chỉ gửi đăng ký một lần khi bấm liên tiếp lúc API đang chờ", async () => {
+    let resolve!: (value: { id: number; email: string; role: "member"; status: string }) => void;
+    vi.mocked(api.register).mockReturnValue(new Promise((r) => { resolve = r; }));
+    render(<AuthForm mode="register" />);
+    fireEvent.change(screen.getByLabelText("Email"), { target: { value: "a@b.com" } });
+    fireEvent.change(screen.getByLabelText("Mật khẩu"), { target: { value: "0123456789" } });
+    const button = screen.getByRole("button", { name: "Đăng ký" });
+    fireEvent.click(button); fireEvent.click(button);
+    expect(api.register).toHaveBeenCalledTimes(1);
+    expect(button).toHaveProperty("disabled", true);
+    resolve({ id: 1, email: "a@b.com", role: "member", status: "active" });
+    vi.mocked(api.login).mockResolvedValue({ ok: true });
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/links"));
+  });
+
+  it("chuyển sang đăng nhập nếu tạo tài khoản xong nhưng đăng nhập lỗi", async () => {
+    vi.mocked(api.register).mockResolvedValue({ id: 1, email: "a@b.com", role: "member", status: "active" });
+    vi.mocked(api.login).mockRejectedValue(new Error("failed"));
+    render(<AuthForm mode="register" />);
+    fireEvent.change(screen.getByLabelText("Email"), { target: { value: "a@b.com" } });
+    fireEvent.change(screen.getByLabelText("Mật khẩu"), { target: { value: "0123456789" } });
+    fireEvent.click(screen.getByRole("button", { name: "Đăng ký" }));
+    expect((await screen.findByRole("alert")).textContent).toBe("Tài khoản đã được tạo, vui lòng đăng nhập");
+    expect(replace).toHaveBeenCalledWith("/login");
+  });
+
+  it("hiện thông báo giới hạn tốc độ", async () => {
+    const { ApiError: MockApiError } = await import("@/lib/api-client");
+    vi.mocked(api.login).mockRejectedValue(new MockApiError(429, "rate_limited", "slow down", null));
+    render(<AuthForm mode="login" />);
+    fireEvent.change(screen.getByLabelText("Email"), { target: { value: "a@b.com" } });
+    fireEvent.change(screen.getByLabelText("Mật khẩu"), { target: { value: "password" } });
+    fireEvent.click(screen.getByRole("button", { name: "Đăng nhập" }));
+    expect((await screen.findByRole("alert")).textContent).toBe("Bạn thử quá nhiều lần, vui lòng đợi một lát");
   });
 });
