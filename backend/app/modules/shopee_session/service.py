@@ -75,13 +75,32 @@ class ShopeeSessionService:
         except CryptoError:
             return None                             # khóa đã đổi: coi như chưa có cookie (worker báo thiếu cookie), không lộ chi tiết
 
-    def record_result(self, result: str, blocked: bool = False) -> None:
-        """result: ok | partial | failed (kết quả OrderSync). Chỉ cập nhật khi đã có cookie trong DB."""
-        if result == "ok":
-            sql = "status = 'healthy', last_ok_at = now(), failure_count = 0"
-        elif result == "partial":
-            sql = "status = 'degraded'"
-        else:
-            sql = f"status = '{'blocked' if blocked else 'degraded'}', failure_count = failure_count + 1"
+    def record_result(self, result: str, blocked: bool = False, notifier=None) -> None:
+        """result: ok | partial | failed (kết quả OrderSync). Chỉ cập nhật khi đã có cookie trong DB.
+        Cảnh báo (T-023): bị chặn (403/hết hạn) báo ngay; lỗi thường báo sau ALERT_AFTER_FAILURES lần liên tiếp; còn lỗi thì nhắc lại
+        sau ALERT_REPEAT_HOURS; hồi phục thì báo một lần. Tin nhắn không chứa cookie."""
+        message = None
         with self.engine.begin() as conn:
-            conn.execute(text(f"UPDATE shopee_sessions SET {sql} WHERE id = :i AND cookie_enc IS NOT NULL"), {"i": ROW_ID})
+            row = conn.execute(text("SELECT status, failure_count, last_alert_at FROM shopee_sessions WHERE id = :i "
+                                    "AND cookie_enc IS NOT NULL FOR UPDATE"), {"i": ROW_ID}).mappings().first()
+            if row is None:
+                return
+            now = self.clock()
+            if result == "ok":
+                conn.execute(text("UPDATE shopee_sessions SET status = 'healthy', last_ok_at = :n, failure_count = 0, last_alert_at = NULL "
+                                  "WHERE id = :i"), {"n": now, "i": ROW_ID})
+                if row["last_alert_at"] is not None:
+                    message = "Cookie Shopee đã hoạt động trở lại (đồng bộ đơn thành công)."
+            else:
+                status = "degraded" if result == "partial" else ("blocked" if blocked else "degraded")
+                failures = row["failure_count"] + (0 if result == "partial" else 1)
+                due = row["last_alert_at"] is None or (now - row["last_alert_at"]).total_seconds() >= self.s.alert_repeat_hours * 3600
+                should = result != "partial" and (blocked or failures >= self.s.alert_after_failures) and due
+                if should:
+                    message = ("Cookie Shopee bị chặn/hết hạn (HTTP 401/403/429 hoặc IP bị chặn): sync đơn dừng, ví KHÔNG chuyển tiền pending→rút được. "
+                               "Dán cookie mới: PUT /api/v1/admin/shopee-session." if blocked else
+                               f"Đồng bộ đơn Shopee lỗi {failures} lần liên tiếp. Xem log worker; ví không chuyển tiền cho tới khi sync lại ok.")
+                conn.execute(text("UPDATE shopee_sessions SET status = :s, failure_count = :f, last_alert_at = CASE WHEN :a THEN :n ELSE last_alert_at END "
+                                  "WHERE id = :i"), {"s": status, "f": failures, "a": should, "n": now, "i": ROW_ID})
+        if message and notifier is not None:
+            notifier.send(message)                         # ngoài transaction; lỗi gửi đã được notifier nuốt

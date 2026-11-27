@@ -162,3 +162,91 @@ def test_worker_uses_the_db_cookie_and_records_the_result(settings, pg, api, mon
     assert seen["cookie"] == COOKIE                                                   # cookie trong DB thắng biến môi trường
     assert row(pg)["status"] == "blocked" and row(pg)["failure_count"] == 1
     assert COOKIE not in capsys.readouterr().out
+
+
+# ---------- T-023: cảnh báo cookie chết / sync lỗi ----------
+class Spy:
+    def __init__(self):
+        self.sent = []
+
+    def send(self, text):
+        self.sent.append(text)
+        return True
+
+
+def _svc_at(settings, pg, clock):
+    return ShopeeSessionService(settings, pg, clock=clock)
+
+
+def test_blocked_alerts_once_then_repeats_after_six_hours_then_reports_recovery(api, pg, settings):
+    from datetime import UTC, datetime, timedelta
+    _, ah = user(api, pg)
+    api.put("/api/v1/admin/shopee-session", headers=ah, json={"cookie": COOKIE})
+    t = [datetime(2100, 1, 1, tzinfo=UTC)]
+    svc, spy = _svc_at(settings, pg, lambda: t[0]), Spy()
+    svc.record_result("failed", blocked=True, notifier=spy)
+    assert len(spy.sent) == 1 and "bị chặn" in spy.sent[0] and "PUT /api/v1/admin/shopee-session" in spy.sent[0]
+    t[0] += timedelta(hours=5, minutes=59)
+    svc.record_result("failed", blocked=True, notifier=spy)
+    assert len(spy.sent) == 1                                                       # chưa đủ 6 giờ: không nhắc
+    t[0] += timedelta(minutes=2)
+    svc.record_result("failed", blocked=True, notifier=spy)
+    assert len(spy.sent) == 2                                                       # đủ 6 giờ: nhắc lại
+    svc.record_result("ok", notifier=spy)
+    assert len(spy.sent) == 3 and "trở lại" in spy.sent[2] and row(pg)["status"] == "healthy"
+    svc.record_result("ok", notifier=spy)
+    assert len(spy.sent) == 3                                                       # đã khỏe: không báo lặp
+    svc.record_result("failed", blocked=True, notifier=spy)
+    assert len(spy.sent) == 4                                                       # hỏng lại: báo ngay (không bị chu kỳ cũ chặn)
+    for text_ in spy.sent:
+        assert "SPC_" not in text_ and COOKIE not in text_
+
+
+def test_plain_failures_alert_only_after_n_in_a_row_and_partial_never_alerts(api, pg, settings):
+    _, ah = user(api, pg)
+    api.put("/api/v1/admin/shopee-session", headers=ah, json={"cookie": COOKIE})
+    svc, spy = ShopeeSessionService(settings, pg), Spy()
+    svc.record_result("failed", notifier=spy)
+    svc.record_result("failed", notifier=spy)
+    svc.record_result("partial", notifier=spy)                                      # partial không tăng đếm và không báo
+    assert spy.sent == [] and row(pg)["failure_count"] == 2
+    svc.record_result("failed", notifier=spy)                                       # lần thứ 3
+    assert len(spy.sent) == 1 and "3 lần" in spy.sent[0]
+    svc.record_result("ok", notifier=spy)
+    assert len(spy.sent) == 2
+    svc.record_result("failed", notifier=spy)
+    svc.record_result("ok", notifier=spy)                                           # hỏng 1 lần rồi ổn: không có gì để báo hồi phục
+    assert len(spy.sent) == 2
+
+
+def test_no_alert_without_a_stored_cookie_and_no_notifier_is_fine(settings, pg):
+    spy = Spy()
+    ShopeeSessionService(settings, pg).record_result("failed", blocked=True, notifier=spy)
+    assert spy.sent == []                                                           # chưa có cookie trong DB: bỏ qua
+    ShopeeSessionService(settings, pg).record_result("failed", blocked=True)       # không notifier: không lỗi
+
+
+def test_new_cookie_clears_the_alert_state(api, pg, settings):
+    _, ah = user(api, pg)
+    api.put("/api/v1/admin/shopee-session", headers=ah, json={"cookie": COOKIE})
+    svc, spy = ShopeeSessionService(settings, pg), Spy()
+    svc.record_result("failed", blocked=True, notifier=spy)
+    api.put("/api/v1/admin/shopee-session", headers=ah, json={"cookie": COOKIE + "; n=1"})
+    with pg.connect() as c:
+        assert c.execute(text("SELECT last_alert_at FROM shopee_sessions WHERE id = 1")).scalar_one() is not None   # còn lưu: lần sau còn trong chu kỳ
+    svc.record_result("failed", blocked=True, notifier=spy)
+    assert len(spy.sent) == 1                                                       # cookie mới vẫn lỗi trong 6 giờ: không báo dồn dập
+
+
+def test_partial_never_alerts_even_when_failures_are_high_and_the_repeat_is_due(api, pg, settings):
+    from datetime import UTC, datetime, timedelta
+    _, ah = user(api, pg)
+    api.put("/api/v1/admin/shopee-session", headers=ah, json={"cookie": COOKIE})
+    t = [datetime(2100, 1, 1, tzinfo=UTC)]
+    svc, spy = _svc_at(settings, pg, lambda: t[0]), Spy()
+    for _ in range(3):
+        svc.record_result("failed", notifier=spy)
+    assert len(spy.sent) == 1
+    t[0] += timedelta(hours=7)                                                      # đã tới hạn nhắc lại
+    svc.record_result("partial", notifier=spy)
+    assert len(spy.sent) == 1                                                       # nhưng partial (đang phục hồi dở) không nhắc

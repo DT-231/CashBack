@@ -83,6 +83,12 @@ class Settings(BaseSettings):
     rl_withdraw_per_hour: int = Field(default=5, ge=1)      # yêu cầu rút theo user
     rl_bank_add_per_hour: int = Field(default=5, ge=1)      # thêm tài khoản ngân hàng theo user
 
+    # --- cảnh báo vận hành (T-023): rỗng = không gửi ---
+    telegram_bot_token: SecretStr = SecretStr("")
+    telegram_chat_id: str = ""
+    alert_repeat_hours: int = Field(default=6, ge=1, le=168)      # còn lỗi thì nhắc lại sau chừng này giờ
+    alert_after_failures: int = Field(default=3, ge=1)            # lỗi thường (không phải bị chặn) báo sau chừng này lần liên tiếp
+
     # --- đăng nhập hai lớp cho admin (TOTP, T-019) ---
     admin_mfa_required: bool = True          # route admin yêu cầu admin đã bật TOTP và đã xác minh gần đây. Bật rút tiền mà tắt cờ này: từ chối khởi động
     mfa_max_age_hours: int = Field(default=12, ge=1, le=168)   # sau chừng này giờ kể từ lần nhập mã phải nhập lại

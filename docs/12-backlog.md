@@ -236,6 +236,7 @@ Ghi chú: các mục trên là điều kiện **mở cho người ngoài**. Dùn
   - Given chữ ký sai hoặc id không tồn tại When khớp Then vào orphan_orders (thuộc admin)
 
 ### T-023: Là admin, tôi muốn cảnh báo khi cookie chết hoặc sync lỗi
+- **Đã làm (2026-11-28, `autopilot/main`)**: Telegram (cần `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`; chưa gửi thật lần nào); email chưa làm; chưa có health-check chủ động mỗi 15 phút (cảnh báo dựa trên kết quả mỗi lần sync).
 - Loại: feature · 5 điểm · Must · Sprint 2 · Owner: codex · Phụ thuộc: T-063, T-020
 - Acceptance criteria:
   - Given 403 When health-check Then trạng thái expired và gửi Telegram/Email
