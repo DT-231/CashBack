@@ -171,7 +171,7 @@ Ghi chú: các mục trên là điều kiện **mở cho người ngoài**. Dùn
   - Given runbook When đọc Then có quy trình xoay khóa và việc sao lưu khóa ngoài `.env`
 
 ### T-019: Là admin, tôi muốn đăng nhập hai lớp (TOTP) để tài khoản admin không bị chiếm
-- Loại: feature · 5 điểm · Must (trước khi bật rút tiền thật) · Sprint 2 · Owner: claude · Phụ thuộc: T-010, T-040. **Chưa làm** (ghi 2026-11-28).
+- Loại: feature · 5 điểm · Must (trước khi bật rút tiền thật) · Sprint 2 · Owner: claude · Phụ thuộc: T-010, T-040. **Đã làm ở nhánh `task/T-019`, chờ PO duyệt merge** (ghi 2026-11-28).
 - Acceptance criteria:
   - Given admin chưa bật TOTP When gọi endpoint admin (duyệt, từ chối, chi trả, xem số tài khoản) Then 403 `mfa_required`
   - Given admin đăng ký TOTP When quét mã và nhập mã đúng Then bật; mã khôi phục hiện đúng một lần, lưu dạng băm
