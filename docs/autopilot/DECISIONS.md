@@ -22,3 +22,9 @@
 - Thay thế: staff xem (chỉ-đọc) sau khi PO xác nhận danh sách trường được phép; admin khóa được admin khác kèm xác nhận hai người.
 - Đảo ngược: đổi `require_admin` ở `adminstats/api.py` sang dependency cho staff.
 - PO nên xem lại.
+
+## 2026-11-28 CSP chưa chặn script
+- Bối cảnh: Next.js App Router dùng script nội tuyến; CSP `script-src 'self'` sẽ làm hỏng trang nếu không có nonce.
+- Chọn: chỉ đặt các chỉ thị an toàn không cần nonce (frame-ancestors, base-uri, form-action, object-src). Chưa có `script-src`.
+- Thay thế: middleware sinh nonce mỗi request và `script-src 'self' 'nonce-…' 'strict-dynamic'` (đề xuất làm khi có domain thật và có thể thử trên trình duyệt thật: không thử được trong môi trường này).
+- Đảo ngược: xóa dòng CSP khỏi `next.config.ts`.
