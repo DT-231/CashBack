@@ -236,3 +236,17 @@ def test_new_cookie_clears_the_alert_state(api, pg, settings):
         assert c.execute(text("SELECT last_alert_at FROM shopee_sessions WHERE id = 1")).scalar_one() is not None   # còn lưu: lần sau còn trong chu kỳ
     svc.record_result("failed", blocked=True, notifier=spy)
     assert len(spy.sent) == 1                                                       # cookie mới vẫn lỗi trong 6 giờ: không báo dồn dập
+
+
+def test_partial_never_alerts_even_when_failures_are_high_and_the_repeat_is_due(api, pg, settings):
+    from datetime import UTC, datetime, timedelta
+    _, ah = user(api, pg)
+    api.put("/api/v1/admin/shopee-session", headers=ah, json={"cookie": COOKIE})
+    t = [datetime(2100, 1, 1, tzinfo=UTC)]
+    svc, spy = _svc_at(settings, pg, lambda: t[0]), Spy()
+    for _ in range(3):
+        svc.record_result("failed", notifier=spy)
+    assert len(spy.sent) == 1
+    t[0] += timedelta(hours=7)                                                      # đã tới hạn nhắc lại
+    svc.record_result("partial", notifier=spy)
+    assert len(spy.sent) == 1                                                       # nhưng partial (đang phục hồi dở) không nhắc
