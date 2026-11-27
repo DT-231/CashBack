@@ -83,6 +83,10 @@ class Settings(BaseSettings):
     rl_withdraw_per_hour: int = Field(default=5, ge=1)      # yêu cầu rút theo user
     rl_bank_add_per_hour: int = Field(default=5, ge=1)      # thêm tài khoản ngân hàng theo user
 
+    # --- sao lưu (T-060, T-065): thư mục chứa tệp .dump.enc để /admin/health báo tuổi bản mới nhất; rỗng = chưa cấu hình ---
+    backup_dir: str = ""
+    backup_max_age_hours: int = Field(default=36, ge=1)
+
     # --- cảnh báo vận hành (T-023): rỗng = không gửi ---
     telegram_bot_token: SecretStr = SecretStr("")
     telegram_chat_id: str = ""
