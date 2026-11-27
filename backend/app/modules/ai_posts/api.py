@@ -22,9 +22,14 @@ def search(request: Request, keyword: str = Query(min_length=1, max_length=200),
            min_sold: int = Query(0, ge=0), engine: str = "auto", _: AgentIdentity = Depends(require_agent)):
     """Tìm sản phẩm. KHÔNG trả link (tránh tạo link thừa); lấy link qua POST /agent/links."""
     res = request.app.state.search.search(keyword.strip(), limit, sort, engine.strip().lower())
-    items = [i for i in res["items"] if i.get("comm_rate", min_rate) >= min_rate and (i.get("sold") or 0) >= min_sold]
+    # Chỉ nguồn feed mới có %hoa hồng; api/browser không có -> không thể lọc min_rate, và nói thật điều đó
+    rate_filterable = res.get("engine") == "feed"
+    items = [i for i in res["items"]
+             if (not (rate_filterable and min_rate > 0 and "comm_rate" in i) or i["comm_rate"] >= min_rate)
+             and (i.get("sold") or 0) >= min_sold]
     return {"ok": res["ok"], "engine": res.get("engine"), "tried": res.get("tried"), "source": res.get("source"),
-            "error": res.get("error"), "count": len(items), "items": items}
+            "error": res.get("error"), "count": len(items), "items": items,
+            "filter_applied": {"min_rate": rate_filterable and min_rate > 0, "min_sold": min_sold > 0}}
 
 
 @router.get("/health")
