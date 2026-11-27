@@ -110,6 +110,7 @@ def test_lock_kills_sessions_immediately_and_unlock_restores_login(api, pg):
     assert login.status_code == 403 and login.json()["error"]["code"] == "account_locked"
     assert api.patch(f"/api/v1/admin/users/{uid}", headers=ah, json={"status": "active", "reason": "đã xác minh"}).status_code == 204
     assert api.post("/api/v1/auth/login", json={"email": email, "password": PW}).status_code == 200
+    assert api.post("/api/v1/auth/refresh", json={"refresh_token": refresh}).status_code == 401    # phiên cũ KHÔNG hồi sinh sau khi mở khóa
     with pg.connect() as c:
         rows = c.execute(text("SELECT actor_id, actor_role, detail FROM audit_logs WHERE action = 'users.set_status' AND target_id = :t ORDER BY id"), {"t": str(uid)}).mappings().all()
     assert [(r["actor_id"], r["actor_role"], r["detail"]["from"], r["detail"]["to"]) for r in rows] == [(aid, "admin", "active", "locked"), (aid, "admin", "locked", "active")]
@@ -139,6 +140,10 @@ def test_service_layer_refuses_non_admin_and_missing_audit(settings, pg, api):
             AuthService(settings, pg).set_user_status(uid, "locked", "lý do", audit=AuditContext(settings, Actor(9, role), None))
     with pytest.raises(InvalidAudit):
         AuthService(settings, pg).set_user_status(uid, "locked", "lý do", audit=None)
+    from app.core.errors import AppError
+    with pytest.raises(AppError) as e:
+        AuthService(settings, pg).set_user_status(uid, "admin", "lý do", audit=AuditContext(settings, Actor(9, "admin"), None))
+    assert e.value.code == "invalid_status"
     assert AuthService.set_user_status.__audited__ is True
 
 
