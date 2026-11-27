@@ -509,3 +509,83 @@ def test_ledger_invariant_holds_after_a_mixed_sequence(api, pg):
         assert bal(pg, uid) == derived(pg, uid) and min(bal(pg, uid)) >= 0
     assert bal(pg, uid) == (0, 600_000, 0)
     assert [e[0] for e in entries(pg, uid)] == ["hold", "refund_hold", "hold", "refund_hold", "hold", "payout"]
+
+
+# ---------- T-041 (chuẩn bị): quy tắc, usable_now, xuất CSV ----------
+def test_rules_and_usable_now_come_from_the_backend(api, pg):
+    uid, h = new_user(api, pg)
+    rules = api.get("/api/v1/me/withdrawals/rules", headers=h).json()
+    assert rules == {"withdrawals_enabled": True, "min_withdraw_vnd": 100_000, "bank_change_cooldown_hours": 48, "max_bank_accounts": 5}
+    new = add_account(api, pg, h, usable=False)
+    assert new["usable_now"] is False
+    listed = api.get("/api/v1/me/bank-accounts", headers=h).json()
+    assert listed[0]["usable_now"] is False and listed[0]["usable_from"] > listed[0]["created_at"]
+    make_usable(pg, new["id"])
+    assert api.get("/api/v1/me/bank-accounts", headers=h).json()[0]["usable_now"] is True
+    assert api.get("/api/v1/me/withdrawals/rules").status_code == 401
+
+
+def test_admin_list_carries_the_transfer_note_with_the_request_id(api, pg):
+    uid, h, acct, wid = requested(api, pg)
+    _, ah = new_user(api, pg, "admin")
+    row = [x for x in api.get("/api/v1/admin/withdrawals", headers=ah).json() if x["id"] == wid][0]
+    assert row["transfer_note"] == f"CASHBACK W{wid}"
+    assert api.post(f"/api/v1/admin/withdrawals/{wid}/approve", headers=ah).json()["transfer_note"] == f"CASHBACK W{wid}"
+
+
+def test_csv_export_decrypts_only_approved_audits_each_row_and_is_safe(api, pg):
+    import csv
+    import io
+    u1, h1, a1, w1 = requested(api, pg, 200_000)
+    u2, h2, a2, w2 = requested(api, pg, 150_000)
+    u3, h3, a3, w3 = requested(api, pg, 120_000)                     # w3 để ở trạng thái requested: KHÔNG được xuất
+    _, ah = new_user(api, pg, "admin")
+    for w in (w1, w2):
+        api.post(f"/api/v1/admin/withdrawals/{w}/approve", headers=ah)
+    with pg.begin() as c:                                           # tên tài khoản độc hại đi vào CSV (đã qua validation: chỉ chữ; ép bằng SQL để thử vệ sinh)
+        c.execute(text("ALTER TABLE bank_accounts DISABLE TRIGGER bank_accounts_no_edit"))
+        c.execute(text("UPDATE bank_accounts SET account_name = '=HYPERLINK(\"http://x\")', bank_code = '@VCB' WHERE id = :i"), {"i": a2})
+        c.execute(text("ALTER TABLE bank_accounts ENABLE TRIGGER bank_accounts_no_edit"))
+    for who, hh, code in (("member", h1, 403), ("staff", None, 403), ("anon", {}, 401)):
+        if who == "staff":
+            _, hh = new_user(api, pg, "staff")
+        assert api.get("/api/v1/admin/withdrawals/export.csv", headers=hh).status_code == code, who
+    r = api.get("/api/v1/admin/withdrawals/export.csv", headers=ah)
+    assert r.status_code == 200 and r.headers["content-type"].startswith("text/csv")
+    assert r.headers["cache-control"] == "no-store" and "attachment" in r.headers["content-disposition"] and r.headers["x-row-count"] == "2"
+    rows = list(csv.reader(io.StringIO(r.text.lstrip("﻿"))))
+    assert rows[0] == ["request_id", "amount_vnd", "bank_code", "account_no", "account_name", "transfer_note"]
+    body = {int(x[0]): x for x in rows[1:]}
+    assert set(body) == {w1, w2}                                     # w3 (requested) không có
+    assert body[w1] == [str(w1), "200000", "VCB", ACCOUNT_NO, "NGUYEN VAN A", f"CASHBACK W{w1}"]
+    assert body[w2][2] == "'@VCB" and body[w2][4] == "'=HYPERLINK(\"http://x\")" and body[w2][5] == f"CASHBACK W{w2}"
+    for line in rows[1:]:
+        assert not any(cell[:1] in ("=", "+", "-", "@", "\t", "\r", "\n") for cell in line)
+    for w in (w1, w2):
+        assert [a["action"] for a in audit_rows(pg, w, "payout.view_account")] == ["payout.view_account"]      # mỗi dòng một audit
+    with pg.connect() as c:
+        ex = c.execute(text("SELECT detail FROM audit_logs WHERE action = 'payout.export' ORDER BY id DESC LIMIT 1")).scalar_one()
+        assert ex == {"count": 2}
+        every = json.dumps([dict(x) for x in c.execute(text("SELECT * FROM audit_logs WHERE action LIKE 'payout.%'")).mappings()], default=str)
+    assert ACCOUNT_NO not in every
+    api.post(f"/api/v1/admin/withdrawals/{w1}/mark-paid", headers=ah, json={"provider_ref": "FT-EXPORT-1"})
+    again = api.get("/api/v1/admin/withdrawals/export.csv", headers=ah)
+    assert again.headers["x-row-count"] == "1" and f"{w1}," not in again.text.replace('"', "")                 # đã trả thì không còn trong CSV
+
+
+def test_csv_export_audit_failure_returns_no_data(settings, pg, monkeypatch):
+    api = TestClient(create_app(settings(), engine=pg), raise_server_exceptions=False)
+    uid, h, acct, wid = requested(api, pg)
+    _, ah = new_user(api, pg, "admin")
+    api.post(f"/api/v1/admin/withdrawals/{wid}/approve", headers=ah)
+    real = payout_service.audit_service.record
+
+    def boom(conn, s, actor, action, **kw):
+        if action == "payout.export":
+            raise RuntimeError("audit down")
+        return real(conn, s, actor, action, **kw)
+    monkeypatch.setattr(payout_service.audit_service, "record", boom)
+    r = api.get("/api/v1/admin/withdrawals/export.csv", headers=ah)
+    assert r.status_code == 500 and ACCOUNT_NO not in r.text
+    with pg.connect() as c:                                          # transaction hủy: cũng không còn dòng view_account của lần này
+        assert c.execute(text("SELECT count(*) FROM audit_logs WHERE action = 'payout.view_account' AND target_id = :t"), {"t": str(wid)}).scalar_one() == 0
