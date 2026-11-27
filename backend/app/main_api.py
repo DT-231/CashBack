@@ -15,6 +15,7 @@ from app.core.config import ConfigError, Settings, load_settings
 from app.core.db import make_engine
 from app.core.errors import error_body, register_error_handlers
 from app.core.logging import configure_logging, set_request_id
+from app.integrations.mail import build_mailer
 from app.integrations.shopee import build_client
 from app.modules.ai_posts import api as ai_posts_api
 from app.modules.auth import api as auth_api
@@ -41,6 +42,7 @@ def create_app(settings: Settings | None = None, shopee=None, engine: Engine | N
     app.state.shopee = shopee or build_client(settings)
     app.state.search = ProductSearch(settings, app.state.shopee)
     app.state.engine = engine
+    app.state.mailer = build_mailer(settings)        # test thay bằng bản giả
 
     engine_lock = threading.Lock()
 

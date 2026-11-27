@@ -13,7 +13,7 @@ GRANT SELECT, INSERT, UPDATE ON ALL TABLES IN SCHEMA public TO :"app_role";
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO :"app_role";
 
 -- Chỉ những bảng mà code hiện tại cần xóa dòng (xem `grep "DELETE FROM" backend/app`)
-GRANT DELETE ON rate_limits, refresh_tokens, orphan_orders, shopee_order_items, user_mfa, mfa_recovery_codes TO :"app_role";
+GRANT DELETE ON rate_limits, refresh_tokens, orphan_orders, shopee_order_items, user_mfa, mfa_recovery_codes, email_tokens TO :"app_role";
 
 -- Bất biến: sổ cái và audit chỉ thêm/đọc
 REVOKE UPDATE, DELETE, TRUNCATE ON wallet_entries, audit_logs FROM :"app_role";
