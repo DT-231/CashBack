@@ -5,9 +5,26 @@ giải mã là `legacy`. Link có chữ ký, truy ngược được: dùng POST 
 """
 from __future__ import annotations
 
-from app.core.config import Settings
-from app.modules.links.affiliate_link import LinkConfig, LinkError, link_for_item, product_url
+import secrets
+import string
+from urllib.parse import urlsplit
 
+from sqlalchemy import Engine
+
+from app.core import subid
+from app.core.config import ConfigError, Settings
+from app.core.errors import AppError
+from app.modules.links import repository
+from app.modules.links.affiliate_link import (
+    LinkConfig,
+    LinkError,
+    link_for_item,
+    make_link,
+    parse_product_url,
+    product_url,
+)
+from app.modules.links.errors import InvalidLink
+from app.modules.links.schemas import LinkOut, ProductOut, UserLinkOut
 
 def enrich_items(settings: Settings, items: list[dict], sub: str) -> list[dict]:
     """Gắn product_url/aff_link/sub_id cho từng item. Không có `sub` thì dùng tiền tố 'api' (không đưa keyword người dùng vào sub_id)."""
@@ -28,21 +45,6 @@ def enrich_items(settings: Settings, items: list[dict], sub: str) -> list[dict]:
         out.append(rec)
     return out
 
-
-# User-facing links live alongside the legacy search enrichment above.
-import secrets
-import string
-from urllib.parse import urlsplit
-
-from sqlalchemy import Engine
-
-from app.core import subid
-from app.core.config import ConfigError
-from app.core.errors import AppError
-from app.modules.links import repository
-from app.modules.links.affiliate_link import parse_product_url, make_link
-from app.modules.links.errors import InvalidLink
-from app.modules.links.schemas import LinkOut, ProductOut, UserLinkOut
 
 _CODE_ALPHABET = string.ascii_lowercase + string.digits
 

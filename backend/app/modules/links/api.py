@@ -2,10 +2,8 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Query, Request
 
-from app.core.errors import AppError
 from app.modules.auth.api import current_user
 from app.modules.auth.schemas import UserOut
-from app.modules.links.errors import InvalidLink
 from app.modules.links.schemas import CreateLinkRequest, LinkOut, UserLinkOut
 from app.modules.links.service import UserLinkService
 
@@ -18,10 +16,7 @@ def _service(request: Request) -> UserLinkService:
 
 @router.post("/links", response_model=LinkOut)
 def create_link(body: CreateLinkRequest, request: Request, user: UserOut = Depends(current_user)):
-    try:
-        return _service(request).create(user.id, body.url)
-    except InvalidLink as exc:
-        raise AppError(str(exc), code="invalid_input", status=400) from exc
+    return _service(request).create(user.id, body.url)
 
 
 @router.get("/me/links", response_model=list[UserLinkOut])
