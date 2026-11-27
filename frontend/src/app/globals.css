@@ -35,4 +35,12 @@ textarea { width: 100%; min-height: 48px; padding: 10px 12px; border: 1px solid 
 .withdrawal-actions { display: grid; gap: 12px; margin-top: 16px; }
 .withdrawal-actions form { max-width: 480px; }
 .withdrawal-list > li { min-width: 0; }
+.admin-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 12px; }
+.admin-card { min-width: 0; padding: 16px; border: 1px solid #d4e0d9; border-radius: 8px; overflow-wrap: anywhere; }
+.admin-card h2, .admin-card h3 { margin-top: 0; }
+.admin-filters { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; margin: 16px 0; }
+.admin-filters .field { flex: 1 1 220px; }
+.admin-row-actions { display: grid; gap: 10px; max-width: 480px; margin-top: 12px; }
+.admin-row-actions form { gap: 10px; }
+.admin-table-wrap { max-width: 100%; overflow-wrap: anywhere; }
 @media (max-width: 480px) { .page { margin: 16px auto; gap: 14px; } .panel { padding: 18px; } .topbar { padding-inline: 16px; flex-wrap: wrap; } }
