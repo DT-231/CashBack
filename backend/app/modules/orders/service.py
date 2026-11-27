@@ -153,3 +153,36 @@ class OrderSync:
                 repository.set_attribution(conn, cur["id"], o.utm_content, attr)
                 repository.delete_orphan(conn, cur["id"])
                 res.reattributed += 1
+
+
+@dataclass(frozen=True)
+class AttributedOrder:
+    order_id: int
+    user_id: int
+    status: str
+    commission_micro: int
+    completed_at: datetime | None
+
+
+@dataclass(frozen=True)
+class SyncHealth:
+    result: str                      # ok | partial | failed
+    finished_at: datetime
+
+
+class OrderReader:
+    """Giao diện đọc công khai của orders cho module khác (wallet). Chỉ đọc."""
+
+    def __init__(self, engine: Engine):
+        self.engine = engine
+
+    def attributed_orders(self, after_id: int = 0, limit: int = 500, recent_days: int = 90) -> list[AttributedOrder]:
+        with self.engine.connect() as conn:
+            rows = repository.attributed_orders(conn, after_id, limit, recent_days)
+        return [AttributedOrder(r["id"], r["user_id"], r["status"], r["commission_micro"], r["completed_at"]) for r in rows]
+
+    def sync_health(self) -> SyncHealth | None:
+        """Lần đồng bộ đơn đã kết thúc gần nhất (None nếu chưa từng sync)."""
+        with self.engine.connect() as conn:
+            r = repository.latest_finished_run(conn)
+        return SyncHealth(r["result"], r["finished_at"]) if r and r["result"] else None

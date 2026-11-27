@@ -247,9 +247,12 @@ def test_unknown_or_missing_status_never_downgrades_a_completed_order(api, setti
     res = sync(settings, pg, [row])
     assert fetch(pg, sn)["status"] == "COMPLETED" and res.status_changes == []
     assert res.status_conflicts == [(sn, "COMPLETED", "PENDING")]
-    row["orders"][0]["order_status"] = "CANCELLED"
+    row["orders"][0]["order_status"] = "SOMETHING_NEW"      # giá trị lạ: vẫn map về PENDING, không hạ đơn
     sync(settings, pg, [row])
     assert fetch(pg, sn)["status"] == "COMPLETED"
+    row["orders"][0]["order_status"] = "CANCELLED"          # nhưng CANCELLED rõ ràng thì được chấp nhận (Shopee thu hồi)
+    assert sync(settings, pg, [row]).status_changes == [(sn, "COMPLETED", "CANCELLED")]
+    assert fetch(pg, sn)["status"] == "CANCELLED"
 
 
 def test_cancelled_order_is_terminal(api, settings, pg):

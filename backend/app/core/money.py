@@ -32,6 +32,14 @@ def share_floor(amount: int, share_bp: int) -> int:
     return amount * share_bp // BP
 
 
+def micro_share_floor(micro: int, share_bp: int) -> int:
+    """Phần của user (VND) từ hoa hồng micro-VND: MỘT lần làm tròn xuống (không làm tròn hai lần).
+    40.375đ = 4.037.500.000 micro, 60% -> 24.225đ."""
+    if micro < 0 or not 0 <= share_bp <= BP:
+        raise ValueError("micro >= 0 và share_bp trong [0, 10000]")
+    return micro * share_bp // (BP * MICRO)
+
+
 def format_vnd(vnd: int) -> str:
     return f"{int(vnd):,}".replace(",", ".")
 
