@@ -98,7 +98,7 @@ def test_reconciliation_numbers_match_the_ledger(api, pg, settings):
     assert other["orders"] == {"COMPLETED": {"count": 1, "commission_micro": COMPLETED_MICRO, "attributed_micro": 0, "commission_vnd": 40_375, "attributed_vnd": 0}}
     assert other["completed"]["user_share_accrued_vnd"] == 0 and other["completed"]["platform_margin_vnd"] == 40_375   # đơn mồ côi: toàn bộ là biên
     empty = api.get("/api/v1/admin/reconciliation", params={"month": "2099-06"}, headers=ah).json()
-    assert empty["orders"] == {} and empty["completed"]["platform_margin_vnd"] == 0 and empty["paid_out_vnd"] >= 0
+    assert empty["orders"] == {} and empty["completed"]["platform_margin_vnd"] == 0 and empty["paid_out_vnd"] == 0   # chi trả ghi "bây giờ" không rơi vào tháng khác
 
 
 def test_payouts_and_admin_loss_are_reported(api, pg):
@@ -169,3 +169,28 @@ def test_endpoints_are_read_only(api, pg):
     from pathlib import Path
     src = (Path(__file__).resolve().parents[2] / "app" / "modules" / "adminstats" / "repository.py").read_text()
     assert not re.search(r"(?i)\b(insert\s+into|update\s+\w+\s+set|delete\s+from|truncate|drop\s+table|alter\s+table)\b", src)
+
+
+def test_month_boundaries_are_half_open_including_december(api, pg):
+    u, _ = user(api, pg)
+    _, ah = user(api, pg, "admin")
+    order(pg, "PENDING", 1_000_000_000, u, when="2099-03-01 00:00:00+00")        # đúng 0h ngày 1: thuộc tháng 3
+    order(pg, "PENDING", 2_000_000_000, u, when="2099-03-31 23:59:59+00")        # giây cuối tháng 3
+    order(pg, "PENDING", 4_000_000_000, u, when="2099-04-01 00:00:00+00")        # đúng 0h ngày 1 tháng 4: KHÔNG thuộc tháng 3
+    order(pg, "PENDING", 8_000_000_000, u, when="2099-12-31 23:59:59+00")        # giây cuối năm: thuộc tháng 12
+    order(pg, "PENDING", 16_000_000_000, u, when="2100-01-01 00:00:00+00")       # sang năm: KHÔNG thuộc tháng 12
+    get = lambda m: api.get("/api/v1/admin/reconciliation", params={"month": m}, headers=ah).json()["orders"]["PENDING"]   # noqa: E731
+    assert get("2099-03") == {"count": 2, "commission_micro": 3_000_000_000, "attributed_micro": 3_000_000_000, "commission_vnd": 30_000, "attributed_vnd": 30_000}
+    assert get("2099-04")["commission_micro"] == 4_000_000_000
+    assert get("2099-12")["commission_micro"] == 8_000_000_000 and get("2099-12")["count"] == 1
+
+
+def test_partial_cancels_on_a_completed_order_reduce_the_user_share_and_raise_the_margin(api, pg):
+    u, _ = user(api, pg)
+    _, ah = user(api, pg, "admin")
+    oid = order(pg, "COMPLETED", COMPLETED_MICRO, u, when="2099-07-10 00:00+00")
+    with pg.begin() as c:
+        ledger.post(c, u, "accrual", "pending", 24_225, f"itest:p:a:{oid}", order_id=oid)
+        ledger.post(c, u, "cancel", "cancelled", 1_000, f"itest:p:c:{oid}", order_id=oid)          # hoa hồng bị Shopee điều chỉnh giảm
+    c = api.get("/api/v1/admin/reconciliation", params={"month": "2099-07"}, headers=ah).json()["completed"]
+    assert c["user_share_accrued_vnd"] == 23_225 and c["platform_margin_vnd"] == 40_375 - 23_225
