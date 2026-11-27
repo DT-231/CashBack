@@ -72,6 +72,14 @@ class Settings(BaseSettings):
     bff_enabled: bool = False
     trust_proxy_headers: bool = False        # True khi đứng sau Cloudflare/Tunnel: lấy IP thật từ CF-Connecting-IP
 
+    # --- rút tiền (module payout) ---
+    withdrawals_enabled: bool = False        # tắt mặc định; bật thì BẮT BUỘC có BANK_ENC_KEY đủ mạnh (khởi động từ chối nếu không)
+    bank_enc_key: SecretStr = SecretStr("")  # AES-256-GCM, base64 của 32 byte ngẫu nhiên; sao lưu NGOÀI .env
+    bank_enc_key_id: str = "k1"              # phiên bản khóa, lưu kèm mỗi giá trị mã hóa
+    bank_enc_old_keys: SecretStr = SecretStr("")   # "k0:<khóa>,..." khóa cũ chỉ để giải mã sau khi đổi khóa
+    rl_withdraw_per_hour: int = Field(default=5, ge=1)      # yêu cầu rút theo user
+    rl_bank_add_per_hour: int = Field(default=5, ge=1)      # thêm tài khoản ngân hàng theo user
+
     # --- đăng nhập (module auth) ---
     jwt_secret: SecretStr = SecretStr("")    # >= 32 ký tự; rỗng thì endpoint auth trả 503
     access_ttl_min: int = 15
@@ -131,6 +139,9 @@ class Settings(BaseSettings):
         return out
 
     def validate_for_serving(self) -> None:
+        if self.withdrawals_enabled:
+            from app.core.crypto import keyring   # chỉ khi bật rút tiền; ném ConfigError nếu khóa thiếu/yếu/sai định dạng
+            keyring(self)
         secret = self.bff_shared_secret.get_secret_value()
         if secret and len(secret) < 16:
             raise ConfigError("BFF_SHARED_SECRET phải có ít nhất 16 ký tự (hoặc để trống để không tin X-Visitor-IP)")

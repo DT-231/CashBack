@@ -23,8 +23,8 @@ Quyền: `public`, `member`, `staff`, `admin`, `agent`.
 | GET | `/me/orders?limit=&offset=` | member | Đơn của tôi (mới nhất trước): `{id, order_ref (4 ký tự cuối), status, product_name (null), purchased_at, refund_vnd, refund_state: none\|pending\|available\|cancelled\|reversed, expected_release_at}`. `expected_release_at` chỉ có khi đơn `COMPLETED` và tiền còn chờ = hoàn tất + `hold_days` có hiệu lực lúc hoàn tất; do backend tính, UI không tự tính. Không bao giờ trả đơn của người khác hay đơn mồ côi |
 | GET | `/me/wallet` | member | `{pending_vnd, available_vnd, held_vnd, share_pct}` |
 | GET | `/me/wallet/entries` | member | Sổ cái của tôi |
-| POST | `/me/bank-accounts` | member | Thêm tài khoản nhận |
-| POST | `/me/withdrawals` | member | `{amount_vnd, bank_account_id}` |
+| POST/GET | `/me/bank-accounts` | member | Thêm tài khoản nhận `{bank_code, account_no, account_name}` (mã hóa AES-GCM; trả về chỉ `last4`; chờ `bank_change_cooldown_hours`, mặc định 48 giờ, trước khi rút lần đầu về tài khoản mới; tối đa 5) / danh sách (chỉ 4 số cuối) |
+| POST | `/me/withdrawals` | member | `{amount_vnd (số nguyên), bank_account_id}` + header **`Idempotency-Key`** bắt buộc. Khóa `rút được → đang khóa` trong một transaction có khóa ví; tối thiểu `min_withdraw_vnd`; một yêu cầu mở mỗi user; rate limit. Lỗi: `below_minimum`, `insufficient_funds`, `withdrawal_open_exists`, `idempotency_conflict`, `bank_account_cooling_down`, `withdrawals_disabled` (503) |
 | GET | `/me/withdrawals` | member | Lịch sử rút |
 | POST | `/me/claims` | member | `{order_sn?, note, purchased_at}` |
 
@@ -62,9 +62,10 @@ POST /api/v1/agent/links  {"shop_id":1020310358,"item_id":24088489429,"post_key"
 | GET | `/admin/users`, PATCH `/admin/users/{id}` | staff (xem), admin (sửa) | Khóa/mở |
 | GET | `/admin/orders?status=&source=` | staff+ | |
 | GET | `/admin/orphans`, POST `/admin/orphans/{order_id}/assign` | staff+ | `{user_id, reason}`, ghi audit |
-| GET | `/admin/withdrawals?status=` | staff+ | |
-| POST | `/admin/withdrawals/{id}/approve` / `/reject` | staff+ (theo cấu hình) | |
-| POST | `/admin/withdrawals/{id}/mark-paid` | staff+ | `{provider_ref}` cho chi trả thủ công |
+| GET | `/admin/withdrawals?status=` | **admin** | Chỉ 4 số cuối tài khoản |
+| POST | `/admin/withdrawals/{id}/approve` / `/reject` `{reason}` / `/fail` `{reason}` | **admin** (staff không) | Từ chối/lỗi hoàn tiền bằng bút toán `refund_hold` mới; trạng thái đổi có điều kiện (không làm hai lần) |
+| GET | `/admin/withdrawals/{id}/payout-account` | **admin** | Giải mã số tài khoản để chuyển khoản (chỉ khi `approved`); ghi audit `payout.view_account` mỗi lần; `Cache-Control: no-store` |
+| POST | `/admin/withdrawals/{id}/mark-paid` | **admin** | `{provider_ref}` mã giao dịch ngân hàng, duy nhất, không đánh dấu hai lần |
 | PUT | `/admin/shopee-session` | admin | `{cookie}`; không có GET trả cookie |
 | GET | `/admin/shopee-session/status` | admin | `{status,last_ok_at,failure_count}` |
 | POST | `/admin/imports/orders-csv` | staff+ | Import dự phòng |

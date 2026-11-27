@@ -45,7 +45,13 @@ def test_up_down_up(scratch_url):
     assert "refresh_tokens" in names(scratch_url, "table")
     cols = lambda: {r[0] for r in create_engine(scratch_url).connect().execute(text(  # noqa: E731
         "SELECT column_name FROM information_schema.columns WHERE table_name='audit_logs'"))}
+    colsof = lambda t: {r[0] for r in create_engine(scratch_url).connect().execute(text(  # noqa: E731
+        "SELECT column_name FROM information_schema.columns WHERE table_name = :t"), {"t": t})}
+    bank_cols, wd_cols = (lambda: colsof("bank_accounts")), (lambda: colsof("withdrawals"))
     assert {"actor_role", "target_type", "target_id", "ip_hash", "request_id"} <= cols() and "target" not in cols()
+    assert "key_id" in bank_cols() and "idem_key" in wd_cols()
+    alembic(scratch_url, "downgrade", "0004")
+    assert "key_id" not in bank_cols() and "idem_key" not in wd_cols() and "withdrawals_user_idem" not in names(scratch_url, "index")
     alembic(scratch_url, "downgrade", "0003")
     assert "target" in cols() and "ip_hash" not in cols()
     alembic(scratch_url, "upgrade", "head")

@@ -4,7 +4,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, Request
 
 from app.core.clientip import request_ip
-from app.core.errors import Unauthorized
+from app.core.errors import Forbidden, Unauthorized
 from app.modules.audit.service import Actor, record_best_effort
 from app.core.ratelimit import enforce_ip_limit, enforce_rate_limits
 from app.modules.auth.schemas import LoginIn, RefreshIn, RegisterIn, TokenOut, UserOut
@@ -27,6 +27,13 @@ def current_user(request: Request) -> UserOut:
     user = _service(request).user_from_token(_bearer(request))
     if user is None:
         raise Unauthorized("Chưa đăng nhập hoặc phiên đã hết hạn")
+    return user
+
+
+def require_admin(user: UserOut = Depends(current_user)) -> UserOut:
+    """Chỉ role admin (staff KHÔNG đủ). `current_user` đọc role từ DB mỗi request nên hạ quyền có hiệu lực ngay."""
+    if user.role != "admin":
+        raise Forbidden("Chỉ admin được thực hiện thao tác này")
     return user
 
 

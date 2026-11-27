@@ -31,6 +31,10 @@ class Conflict(AppError):
     status, code = 409, "conflict"
 
 
+class Forbidden(AppError):
+    status, code = 403, "forbidden"
+
+
 class Unauthorized(AppError):
     status, code = 401, "unauthorized"
 
