@@ -73,7 +73,8 @@ POST /api/v1/agent/links  {"shop_id":1020310358,"item_id":24088489429,"post_key"
 | PUT | `/admin/shopee-session` | admin | `{cookie}`; không có GET trả cookie |
 | GET | `/admin/shopee-session/status` | admin | `{status,last_ok_at,failure_count}` |
 | POST | `/admin/imports/orders-csv` | staff+ | Import dự phòng |
-| GET | `/admin/reconciliation?month=` | admin | |
+| GET | `/admin/reconciliation?month=YYYY-MM` | admin (+TOTP) | Đơn theo trạng thái (hoa hồng micro và VND), bút toán ví theo trạng thái đơn, `completed.{shopee_commission_vnd, user_share_accrued_vnd, platform_margin_vnd}`, chi trả trong tháng, khoản lỗ admin (`adjust`). Tháng nửa mở [đầu, đầu tháng sau) theo UTC |
+| GET | `/admin/ledger-integrity` | admin (+TOTP) | So `wallets` với số suy ra từ `wallet_entries`; `mismatches` > 0 là sự cố: dừng rút tiền, xem `docs/runbooks/wallet.md` |
 | GET/PUT | `/admin/settings` | admin | `user_share_bp, min_withdraw_vnd, hold_days, auto_payout` |
 | GET | `/admin/fraud-flags` | staff+ | |
 | POST/DELETE | `/admin/agent-keys` | admin | Cấp/thu hồi key (hiện key đúng 1 lần) |

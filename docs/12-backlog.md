@@ -336,6 +336,7 @@ Ghi chú: các mục trên là điều kiện **mở cho người ngoài**. Dùn
   - Given gán When xong Then audit ghi người làm và lý do
 
 ### T-052: Là admin, tôi muốn đối soát: hoa hồng Shopee − chia user − lợi nhuận
+- **Backend đã làm (2026-11-28, `autopilot/main`)**: đối soát tháng và kiểm tra toàn vẹn sổ cái. Giao diện: chưa. Đối chiếu với số Shopee THẬT trả cho PO (so với tổng `shopee_commission_vnd` đã chuyển tiền): việc của PO khi có dữ liệu (xem `PO-INBOX.md`).
 - Loại: feature · 5 điểm · Should · Sprint 5 · Owner: claude · Phụ thuộc: T-031
 - Acceptance criteria:
   - Given tháng M When xem Then X(Shopee) = Y(chia user) + Z(mồ côi + bài) + lợi nhuận
