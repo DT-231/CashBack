@@ -470,7 +470,8 @@ def test_order_batch_is_not_cached_and_carries_complete_flag(monkeypatch):
         calls.append(path)
         return {"code": 0, "data": {"total_count": 1, "list": [{"orders": []}]}}
     monkeypatch.setattr(c, "_get", fake)
-    a, b = c.order_batch(60), c.order_batch(60)
+    a = c.order_batch(60)
+    c.order_batch(60)
     assert a.complete and len(a.rows) == 1 and len(calls) == 2    # không cache: mỗi lần sync phải lấy mới
     assert c.order_batch(60).window[0] < c.order_batch(60).window[1]
 
