@@ -7,6 +7,8 @@
 """
 from __future__ import annotations
 
+import functools
+import inspect
 import logging
 import re
 from dataclasses import dataclass
@@ -62,3 +64,23 @@ def record_best_effort(engine: Engine, settings: Settings, actor: Actor, action:
             record(conn, settings, actor, action, **kw)
     except Exception:  # noqa: BLE001 - sự kiện thông tin không được làm hỏng yêu cầu của người dùng
         log.exception("không ghi được audit log", extra={"action": action})
+
+
+def audited(fn):
+    """Đánh dấu hàm service THAY ĐỔI dữ liệu admin/tiền: bắt buộc tham số từ khóa `audit: AuditContext` KHÔNG có giá trị mặc định.
+
+    Ép hai lớp: (1) lúc định nghĩa (import) chữ ký sai thì ném TypeError, nên không thể "quên"; (2) lúc gọi, `audit` phải là
+    AuditContext thật (None hoặc thiếu thì lỗi). Contract test (`test_audit_required.py`) quét mọi hàm công khai của service
+    tiền/payout: hàm nào không nằm trong danh sách chỉ-đọc mà thiếu `@audited` thì test đỏ."""
+    p = inspect.signature(fn).parameters.get("audit")
+    if p is None or p.kind is not inspect.Parameter.KEYWORD_ONLY or p.default is not inspect.Parameter.empty:
+        raise TypeError(f"{fn.__qualname__}: phải có tham số từ khóa bắt buộc `audit` (không có giá trị mặc định)")
+
+    @functools.wraps(fn)
+    def wrapper(*args, **kwargs):
+        if not isinstance(kwargs.get("audit"), AuditContext):
+            raise InvalidAudit(f"{fn.__qualname__}: thiếu ngữ cảnh audit")
+        return fn(*args, **kwargs)
+
+    wrapper.__audited__ = True
+    return wrapper

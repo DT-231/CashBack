@@ -14,8 +14,9 @@ from app.modules.audit import service as audit
 from app.modules.platform_settings import repository
 from app.modules.platform_settings.errors import InvalidSetting
 
-DEFAULTS = {"user_share_bp": 6000, "hold_days": 7, "min_withdraw_vnd": 100_000}   # quyết định PO: 60/40, giữ 7 ngày
-LIMITS = {"user_share_bp": (0, 10_000), "hold_days": (0, 120), "min_withdraw_vnd": (0, 100_000_000)}
+DEFAULTS = {"user_share_bp": 6000, "hold_days": 7, "min_withdraw_vnd": 100_000, "bank_change_cooldown_hours": 48}   # quyết định PO: 60/40, giữ 7 ngày
+LIMITS = {"user_share_bp": (0, 10_000), "hold_days": (0, 120), "min_withdraw_vnd": (0, 100_000_000),
+          "bank_change_cooldown_hours": (0, 720)}
 
 
 def _valid(key: str, v) -> bool:

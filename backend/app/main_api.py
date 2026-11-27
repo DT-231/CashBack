@@ -22,6 +22,7 @@ from app.modules.clicks import api as clicks_api
 from app.modules.links.affiliate_link import LinkInputError
 from app.modules.links import api as links_api
 from app.modules.products.service import ProductSearch
+from app.modules.payout import api as payout_api
 from app.modules.wallet import api as wallet_api
 
 log = logging.getLogger("app.access")
@@ -80,6 +81,8 @@ def create_app(settings: Settings | None = None, shopee=None, engine: Engine | N
     app.include_router(auth_api.router)
     app.include_router(wallet_api.router)
     app.include_router(wallet_api.orders_router)
+    app.include_router(payout_api.me_router)
+    app.include_router(payout_api.admin_router)
     return app
 
 
