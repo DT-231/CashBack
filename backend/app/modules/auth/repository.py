@@ -109,3 +109,33 @@ def set_status(conn: Connection, user_id: int, status: str) -> dict | None:
     """Đổi trạng thái; trả (id, role, status cũ) hoặc None nếu không có user."""
     return conn.execute(text("UPDATE users u SET status = :s FROM (SELECT id, role, status AS old FROM users WHERE id = :i FOR UPDATE) o "
                              "WHERE u.id = o.id RETURNING u.id, o.role, o.old"), {"s": status, "i": user_id}).mappings().first()
+
+
+# ---------- email_tokens (T-011) ----------
+def find_by_email_any(conn: Connection, email: str):
+    return conn.execute(text("SELECT id, email, role, status FROM users WHERE email = :e"), {"e": email}).mappings().first()
+
+
+def new_email_token(conn: Connection, user_id: int, purpose: str, token_hash: str, ttl_minutes: int) -> None:
+    """Một token còn hiệu lực mỗi (user, purpose): token cũ chưa dùng bị đánh dấu đã dùng."""
+    conn.execute(text("UPDATE email_tokens SET used_at = now() WHERE user_id = :u AND purpose = :p AND used_at IS NULL"), {"u": user_id, "p": purpose})
+    conn.execute(text("INSERT INTO email_tokens(user_id, purpose, token_hash, expires_at) VALUES (:u, :p, :h, now() + make_interval(mins => :m))"),
+                 {"u": user_id, "p": purpose, "h": token_hash, "m": ttl_minutes})
+
+
+def consume_email_token(conn: Connection, token_hash: str, purpose: str) -> int | None:
+    """Dùng token MỘT lần (nguyên tử): trả user_id nếu còn hạn và chưa dùng."""
+    return conn.execute(text("UPDATE email_tokens SET used_at = now() WHERE token_hash = :h AND purpose = :p AND used_at IS NULL "
+                             "AND expires_at > now() RETURNING user_id"), {"h": token_hash, "p": purpose}).scalar()
+
+
+def activate_if_unverified(conn: Connection, user_id: int) -> None:
+    conn.execute(text("UPDATE users SET status = 'active' WHERE id = :u AND status = 'unverified'"), {"u": user_id})
+
+
+def set_password(conn: Connection, user_id: int, password_hash: str) -> None:
+    conn.execute(text("UPDATE users SET password_hash = :p WHERE id = :u"), {"p": password_hash, "u": user_id})
+
+
+def invalidate_email_tokens(conn: Connection, user_id: int, purpose: str) -> None:
+    conn.execute(text("UPDATE email_tokens SET used_at = now() WHERE user_id = :u AND purpose = :p AND used_at IS NULL"), {"u": user_id, "p": purpose})

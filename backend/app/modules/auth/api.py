@@ -1,13 +1,15 @@
 """HTTP của auth. Dependency `current_user` dùng chung cho các module khác cần đăng nhập."""
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, Request
+from pydantic import BaseModel, Field
 
 from app.core.clientip import request_ip
 from app.core import security
 from app.core.errors import Forbidden, Unauthorized
 from app.modules.audit.service import Actor, record_best_effort
 from app.core.ratelimit import enforce_ip_limit, enforce_rate_limits
+from app.modules.auth.account_service import AccountService
 from app.modules.auth.schemas import LoginIn, RefreshIn, RegisterIn, TokenOut, UserOut
 from app.modules.auth.service import AuthService
 
@@ -50,10 +52,41 @@ def require_admin(request: Request, user: UserOut = Depends(current_user)) -> Us
     return user
 
 
+def _account(request: Request) -> AccountService:
+    st = request.app.state
+    return AccountService(st.settings, st.get_engine())
+
+
+def _send_link(request: Request, issued, purpose: str) -> None:
+    """Gửi thư chứa liên kết một lần. Chạy SAU khi đã trả lời (BackgroundTasks). Thiếu WEB_ORIGIN hoặc SMTP thì không gửi gì."""
+    st = request.app.state
+    origin = st.settings.web_origin.strip().rstrip("/")
+    if issued is None or not origin:
+        return
+    email, token = issued
+    page, subject, intro = (("verify-email", "Xác minh email CashBack", "Bấm liên kết để xác minh email (hiệu lực 24 giờ):"),
+                            ("reset-password", "Đặt lại mật khẩu CashBack", "Bấm liên kết để đặt mật khẩu mới (hiệu lực 1 giờ):"))[purpose == "reset"]
+    getattr(st, "mailer").send(email, subject, f"{intro}\n\n{origin}/{page}?token={token}\n\nNếu bạn không yêu cầu, hãy bỏ qua email này.")
+
+
+class EmailIn(BaseModel):
+    email: str = Field(min_length=3, max_length=254)
+
+
+class TokenIn(BaseModel):
+    token: str = Field(min_length=20, max_length=100)
+
+
+class ResetIn(TokenIn):
+    password: str = Field(min_length=10, max_length=128)
+
+
 @router.post("/register", status_code=201, response_model=UserOut)
-def register(body: RegisterIn, request: Request):
+def register(body: RegisterIn, request: Request, background: BackgroundTasks):
     enforce_ip_limit(request, "register_ip", request.app.state.settings.rl_register_per_hour, 3600)
     user = _service(request).register(body.email, body.password)
+    if user.status == "unverified":
+        background.add_task(_send_link, request, _account(request).issue_verification_for(user.id, user.email), "verify")
     st = request.app.state
     record_best_effort(st.get_engine(), st.settings, Actor(user.id, "user"), "auth.register",
                        target_type="user", target_id=user.id, ip=request_ip(request, st.settings))
@@ -92,3 +125,36 @@ def logout(request: Request, user: UserOut = Depends(current_user)):
 @router.get("/me", response_model=UserOut)
 def me(user: UserOut = Depends(current_user)):
     return user
+
+
+def _anti_abuse(request: Request, scope: str, email: str) -> None:
+    st = request.app.state.settings
+    enforce_rate_limits(request, [(f"{scope}_ip", request_ip(request, st), st.rl_forgot_per_hour, 3600), (f"{scope}_email", email.strip().lower(), 3, 3600)])
+
+
+@router.post("/verify", status_code=204)
+def verify_email(body: TokenIn, request: Request):
+    """POST (không GET): token không đi vào URL/nhật ký truy cập/Referer."""
+    enforce_ip_limit(request, "verify_ip", request.app.state.settings.rl_login_per_minute, 60)
+    _account(request).verify_email(body.token)
+
+
+@router.post("/verify/resend", status_code=202)
+def resend_verification(body: EmailIn, request: Request, background: BackgroundTasks):
+    _anti_abuse(request, "resend", body.email)
+    background.add_task(_send_link, request, _account(request).request_verification(body.email.strip().lower()), "verify")
+    return {"ok": True}
+
+
+@router.post("/forgot", status_code=202)
+def forgot_password(body: EmailIn, request: Request, background: BackgroundTasks):
+    """Luôn 202 như nhau dù email có tồn tại hay không."""
+    _anti_abuse(request, "forgot", body.email)
+    background.add_task(_send_link, request, _account(request).request_reset(body.email.strip().lower()), "reset")
+    return {"ok": True}
+
+
+@router.post("/reset", status_code=204)
+def reset_password(body: ResetIn, request: Request):
+    enforce_ip_limit(request, "reset_ip", request.app.state.settings.rl_login_per_minute, 60)
+    _account(request).reset_password(body.token, body.password, request_ip(request, request.app.state.settings))

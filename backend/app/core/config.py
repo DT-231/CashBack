@@ -83,6 +83,15 @@ class Settings(BaseSettings):
     rl_withdraw_per_hour: int = Field(default=5, ge=1)      # yêu cầu rút theo user
     rl_bank_add_per_hour: int = Field(default=5, ge=1)      # thêm tài khoản ngân hàng theo user
 
+    # --- email giao dịch (T-011): thiếu SMTP_HOST/SMTP_FROM = không gửi ---
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_password: SecretStr = SecretStr("")
+    smtp_from: str = ""
+    web_origin: str = ""                       # https://<domain>: gốc của liên kết trong email (verify/reset). Rỗng = không gửi liên kết
+    rl_forgot_per_hour: int = Field(default=5, ge=1)       # quên mật khẩu / gửi lại xác minh, theo IP; theo email = 3 lần/giờ
+
     # --- sao lưu (T-060, T-065): thư mục chứa tệp .dump.enc để /admin/health báo tuổi bản mới nhất; rỗng = chưa cấu hình ---
     backup_dir: str = ""
     backup_max_age_hours: int = Field(default=36, ge=1)
