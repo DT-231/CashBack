@@ -1,6 +1,6 @@
 """Kéo số liệu THẬT từ dashboard affiliate (khỏi cần export CSV).
 
-3 endpoint này lấy trực tiếp từ HAR thật của mày (26-27/11/2026), đã xác nhận
+3 endpoint này lấy trực tiếp từ HAR thật của bạn (26-27/11/2026), đã xác nhận
 là trang report gọi đúng như vậy:
 
   GET /api/v3/dashboard/detail?start_time=&end_time=
@@ -72,7 +72,7 @@ def _get(path: str, params: dict) -> dict:
             "Thiếu SHOPEE_COOKIE trong .env.\n"
             "Lấy: Chrome -> login affiliate.shopee.vn -> F12 -> Network -> F5 ->\n"
             "      bấm 1 request bất kỳ -> Request Headers -> copy nguyên dòng Cookie: ...\n"
-            "Chỉ dán vào .env trên máy mày. Cookie sống 7-15 ngày."
+            "Chỉ dán vào .env trên máy bạn. Cookie sống 7-15 ngày."
         )
     s = _session()
     for attempt in (1, 2):

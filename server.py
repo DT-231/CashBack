@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Shopee Link API — microservice cho AI của mày gọi: tên sản phẩm -> link affiliate.
+"""Shopee Link API — microservice cho AI của bạn gọi: tên sản phẩm -> link affiliate.
 
 Chạy:  python3 server.py --port 8080
 Test:  curl "http://127.0.0.1:8080/api/search?keyword=noi%20chien&limit=5&sub=fb01"

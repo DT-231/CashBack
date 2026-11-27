@@ -20,11 +20,8 @@ HAR `affiliate.shopee.vn` (41 request, 27/11) cho ra 3 endpoint report quan tr�
 **Đơn vị tiền:** × 1e5 (micro-VND). Đã đối chiếu 1 đơn thật khớp 100%
 (item_price 9.5e9 = 95.000đ, qty 2, rate 2,5% → commission 403.750.000 = 4.037,5đ).
 
-**Số liệu thật trong HAR của user:**
-- 1 click ghi nhận 2026-11-26 15:36 (VN), `sub_id = "----"` ⇒ click đó từ link **không có sub_id**
-  (link ngắn test hôm trước). Tracking chạy đúng, chỉ là chưa gắn sub.
-- 1 đơn 2026-10-12, `COMPLETED`, hoa hồng capped 4.037,5đ, ước tính 15.342,5đ
-  (mức thưởng brand 7%). Ngành: Điện Thoại & Phụ Kiện → Cáp, sạc.
+**Số liệu mẫu:** đã xác nhận tracking nhận click và một đơn `COMPLETED` đối chiếu khớp công thức
+(số liệu cá nhân đã được lược bỏ khỏi bản công khai).
 
 ⇒ Kết luận: **bước xác nhận "click > 0" đã xong**, và đã chứng minh được luôn
 "1 sub_id = 1 bài" là thứ duy nhất cần để biết bài nào ra tiền.
@@ -33,7 +30,7 @@ HAR `affiliate.shopee.vn` (41 request, 27/11) cho ra 3 endpoint report quan tr�
 
 - Format link affiliate verify từ `batchCustomLink` (GraphQL) của dashboard:
   `https://shopee.vn/universal-link/product/{shop_id}/{item_id}?utm_source=an_{aff_id}&utm_medium=affiliates&utm_campaign={campaign}&utm_content={sub_id}`
-- Affiliate id user: `17309260250` (điền sẵn trong `.env.example`).
+- Affiliate id user: `17300000000` (điền sẵn trong `.env.example`).
 - `utm_content` = 5 slot ngăn `-`. Test thật: 301 → giữ utm + Shopee tự thêm `uls_trackid`.
 - `verify_link.py`, `test_offline.py` (16/16 pass).
 

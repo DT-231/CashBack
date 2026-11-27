@@ -4,14 +4,14 @@ Chạy: python3 test_make_link_regression.py
 import os
 import unittest
 
-os.environ["SHOPEE_AFF_ID"] = "17309260250"
+os.environ["SHOPEE_AFF_ID"] = "17300000000"
 os.environ.pop("SUB_ID_PAD", None)
 os.environ.pop("LINK_TEMPLATE", None)
 os.environ.pop("AFF_CAMPAIGN", None)
 
 import affiliate  # noqa: E402
 
-BASE = "https://shopee.vn/universal-link/product/{s}/{i}?utm_source=an_17309260250&utm_medium=affiliates&utm_campaign=-&utm_content={c}"
+BASE = "https://shopee.vn/universal-link/product/{s}/{i}?utm_source=an_17300000000&utm_medium=affiliates&utm_campaign=-&utm_content={c}"
 
 
 class MakeLinkRegression(unittest.TestCase):

@@ -45,7 +45,7 @@ def _headers(keyword):
     cookie = os.environ.get("SHOPEE_COOKIE", "").strip()
     if cookie:
         h["Cookie"] = cookie
-    # Header chống bot — giá trị này đổi theo phiên, lấy từ DevTools của mày
+    # Header chống bot — giá trị này đổi theo phiên, lấy từ DevTools của bạn
     enc = os.environ.get("SHOPEE_AF_AC_ENC_DAT", "").strip()
     if enc:
         h["af-ac-enc-dat"] = enc

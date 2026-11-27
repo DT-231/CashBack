@@ -4,7 +4,7 @@
 Vì sao cần: feed_search.py đọc được nhiều tên cột, nhưng feed Shopee export ra
 thường lệch (dấu BOM, phân cách ';', giá '690.000', rate '8%', item_id chỉ nằm
 trong link dạng -i.7001.900001). Script này chuẩn hoá hết về 1 format, bỏ dòng rác,
-rồi in ra thống kê để mày biết feed có dùng được không.
+rồi in ra thống kê để bạn biết feed có dùng được không.
 
 Dùng:
     python3 feed_import.py feed_goc.csv                 # -> feed.csv

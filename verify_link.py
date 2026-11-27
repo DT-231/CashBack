@@ -7,7 +7,7 @@ Cách dùng:
   python3 verify_link.py --url "https://shopee.vn/..." --sub tiktok-01
 
 Nó in ra: link sinh ra, HTTP status, Location sau 301, và 3 dấu hiệu quyết định:
-  utm_source=an_<aff_id>   -> đúng affiliate id của mày
+  utm_source=an_<aff_id>   -> đúng affiliate id của bạn
   utm_content=<sub_id>     -> sub_id còn nguyên (để lọc báo cáo)
   uls_trackid=...           -> Shopee ĐÃ nhận link vào tracking (dấu hiệu quan trọng nhất)
 

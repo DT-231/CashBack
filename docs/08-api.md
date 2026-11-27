@@ -32,7 +32,7 @@ Ví dụ:
 ```
 POST /api/v1/links  {"url":"https://shopee.vn/Ten-i.1020310358.24088489429"}
 → 200 {"code":"q8w2e1","go_url":"https://app.example/go/q8w2e1",
-       "direct_url":"https://shopee.vn/universal-link/product/1020310358/24088489429?utm_source=an_17309260250&utm_medium=affiliates&utm_campaign=-&utm_content=1l-3f-9a-k2d-",
+       "direct_url":"https://shopee.vn/universal-link/product/1020310358/24088489429?utm_source=an_17300000000&utm_medium=affiliates&utm_campaign=-&utm_content=1l-3f-9a-k2d-",
        "product":{"shop_id":1020310358,"item_id":24088489429,"name":"..."}}
 ```
 

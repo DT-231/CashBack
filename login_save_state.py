@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Chạy MỘT LẦN trên máy mày (cần màn hình, không chạy trên server):
-mở Shopee -> mày đăng nhập tay -> lưu phiên vào state.json để engine 'browser' dùng.
+"""Chạy MỘT LẦN trên máy bạn (cần màn hình, không chạy trên server):
+mở Shopee -> bạn đăng nhập tay -> lưu phiên vào state.json để engine 'browser' dùng.
 
   pip install playwright && playwright install chromium
   python3 login_save_state.py
