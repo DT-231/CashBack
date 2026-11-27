@@ -103,3 +103,9 @@ def use_recovery_code(conn: Connection, user_id: int, code_hash: str) -> bool:
 
 def unused_recovery_count(conn: Connection, user_id: int) -> int:
     return conn.execute(text("SELECT count(*) FROM mfa_recovery_codes WHERE user_id = :u AND used_at IS NULL"), {"u": user_id}).scalar_one()
+
+
+def set_status(conn: Connection, user_id: int, status: str) -> dict | None:
+    """Đổi trạng thái; trả (id, role, status cũ) hoặc None nếu không có user."""
+    return conn.execute(text("UPDATE users u SET status = :s FROM (SELECT id, role, status AS old FROM users WHERE id = :i FOR UPDATE) o "
+                             "WHERE u.id = o.id RETURNING u.id, o.role, o.old"), {"s": status, "i": user_id}).mappings().first()

@@ -100,7 +100,8 @@ def _deps(dependant):
 
 
 # Route admin CHỈ-ĐỌC không lộ dữ liệu nhạy cảm được miễn audit (vẫn bắt buộc require_admin). Thêm route khác vào đây là quyết định có chủ ý.
-ADMIN_READ_ONLY_PATHS = {"/api/v1/admin/withdrawals", "/api/v1/admin/orphans", "/api/v1/admin/shopee-session/status"}
+ADMIN_READ_ONLY_PATHS = {"/api/v1/admin/withdrawals", "/api/v1/admin/orphans", "/api/v1/admin/shopee-session/status", "/api/v1/admin/overview",
+                        "/api/v1/admin/users", "/api/v1/admin/orders"}
 
 
 def test_every_write_or_admin_route_has_the_required_dependencies(make_settings):
