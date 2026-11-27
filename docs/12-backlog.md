@@ -311,6 +311,7 @@ Ghi chú: các mục trên là điều kiện **mở cho người ngoài**. Dùn
   - Given min_rate When search Then lọc đúng theo feed
 
 ### T-051: Là Muse AI, tôi muốn insights doanh thu theo bài/ngành/giờ để học
+- **Đã làm (2026-11-28, `autopilot/main`)**: `GET /api/v1/agent/insights`, schema tool `shopee_insights` cho OpenAI/Gemini. Chưa có click theo bài. Chưa cách ly theo từng khóa agent (mọi khóa thấy mọi bài; hiện chỉ một Muse).
 - Loại: feature · 5 điểm · Should · Sprint 5 · Owner: codex · Phụ thuộc: T-050, T-022
 - Acceptance criteria:
   - Given đơn của bài When group=post Then hiện click/đơn/hoa hồng của từng bài
