@@ -92,3 +92,7 @@ export type LedgerIntegrity = {
   samples: { user_id: number; stored_pending: number; derived_pending: number; stored_available: number; derived_available: number; stored_held: number; derived_held: number }[];
 };
 export type ApiErrorBody = { error: { code: string; message: string; request_id: string | null } };
+export type FraudFlag = {
+  id: number; user_id: number; email: string; rule: string; score: number; status: "open" | "dismissed" | "confirmed";
+  detail: Record<string, number>; created_at: string; updated_at: string; resolved_by: number | null; resolved_at: string | null; resolution_note: string | null;
+};

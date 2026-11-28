@@ -3,7 +3,7 @@
  * Component KHÔNG được gọi `fetch` trực tiếp. Xem docs/adr/0005-web-luu-token-bff-httponly.md.
  */
 import type {
-  AdminHealth, AdminOrder, AdminOrphan, AdminOverview, AdminUser, AdminWithdrawalOut, ApiErrorBody, BankAccountIn, BankAccountOut, EntryOut, LedgerIntegrity, LinkOut, MfaEnableOut, MfaSetup, MfaStatus, OrderOut,
+  AdminHealth, AdminOrder, FraudFlag, AdminOrphan, AdminOverview, AdminUser, AdminWithdrawalOut, ApiErrorBody, BankAccountIn, BankAccountOut, EntryOut, LedgerIntegrity, LinkOut, MfaEnableOut, MfaSetup, MfaStatus, OrderOut,
   PayoutAccountOut, Reconciliation, ShopeeSessionStatus, UserLinkOut, UserOut, WalletOut, WithdrawalOut, WithdrawalRules, WithdrawalStatus,
 } from "./types";
 
@@ -116,6 +116,9 @@ export const api = {
     request<void>("POST", `/bff/api/admin/orphans/${orderId}/assign`, { user_id, reason }),
   adminSetShopeeCookie: (cookie: string) => request<void>("PUT", "/bff/api/admin/shopee-session", { cookie }),
   adminShopeeSessionStatus: () => request<ShopeeSessionStatus>("GET", "/bff/api/admin/shopee-session/status"),
+  adminFraudFlags: (p: { status?: string; limit?: number; offset?: number } = {}) => request<FraudFlag[]>("GET", `/bff/api/admin/fraud-flags${qs(p)}`),
+  adminResolveFraudFlag: (id: number, status: "dismissed" | "confirmed", note: string) =>
+    request<void>("POST", `/bff/api/admin/fraud-flags/${id}/resolve`, { status, note }),
   adminHealth: () => request<AdminHealth>("GET", "/bff/api/admin/health"),
   adminReconciliation: (month: string) => request<Reconciliation>("GET", `/bff/api/admin/reconciliation?month=${encodeURIComponent(month)}`),
   adminLedgerIntegrity: () => request<LedgerIntegrity>("GET", "/bff/api/admin/ledger-integrity"),
