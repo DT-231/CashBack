@@ -95,10 +95,12 @@ describe("api-client: rút tiền, admin, TOTP", () => {
     await api.adminOverview(7); await api.adminUsers({ q: "a@b", limit: 20 }); await api.adminSetUserStatus(5, "locked", "gian lận");
     await api.adminOrders({ status: "PENDING", source: "unknown" }); await api.adminOrphans({ limit: 10, offset: 10 });
     await api.adminAssignOrphan(9, 5, "khiếu nại"); await api.adminSetShopeeCookie("a=b"); await api.adminShopeeSessionStatus();
+    await api.adminFraudFlags({ status: "open", limit: 50 }); await api.adminResolveFraudFlag(4, "confirmed", "đã xác minh");
     expect(sig(f)).toEqual([
       "GET /bff/api/admin/overview?days=7", "GET /bff/api/admin/users?q=a%40b&limit=20", "PATCH /bff/api/admin/users/5",
       "GET /bff/api/admin/orders?status=PENDING&source=unknown", "GET /bff/api/admin/orphans?limit=10&offset=10",
-      "POST /bff/api/admin/orphans/9/assign", "PUT /bff/api/admin/shopee-session", "GET /bff/api/admin/shopee-session/status"]);
+      "POST /bff/api/admin/orphans/9/assign", "PUT /bff/api/admin/shopee-session", "GET /bff/api/admin/shopee-session/status",
+      "GET /bff/api/admin/fraud-flags?status=open&limit=50", "POST /bff/api/admin/fraud-flags/4/resolve"]);
     expect(JSON.parse(String(call(f, 2)[1].body))).toEqual({ status: "locked", reason: "gian lận" });
     expect(JSON.parse(String(call(f, 5)[1].body))).toEqual({ user_id: 5, reason: "khiếu nại" });
     expect(JSON.parse(String(call(f, 6)[1].body))).toEqual({ cookie: "a=b" });

@@ -342,6 +342,7 @@ describe("T-041: allowlist tường minh cho rút tiền, admin, TOTP", () => {
     ["GET", ["admin", "overview"]], ["GET", ["admin", "users"]], ["PATCH", ["admin", "users", "5"]], ["GET", ["admin", "orders"]],
     ["GET", ["admin", "orphans"]], ["POST", ["admin", "orphans", "9", "assign"]], ["PUT", ["admin", "shopee-session"]],
     ["GET", ["admin", "shopee-session", "status"]], ["GET", ["admin", "health"]], ["GET", ["admin", "reconciliation"]], ["GET", ["admin", "ledger-integrity"]],
+    ["GET", ["admin", "fraud-flags"]], ["POST", ["admin", "fraud-flags", "9", "resolve"]],
   ];
   const no: [string, string[]][] = [
     ["GET", ["admin", "withdrawals", "7", "approve"]], ["POST", ["admin", "withdrawals", "7", "payout-account"]],
@@ -351,7 +352,7 @@ describe("T-041: allowlist tường minh cho rút tiền, admin, TOTP", () => {
     ["POST", ["admin", "withdrawals", "-1", "approve"]], ["POST", ["admin", "withdrawals", "1.5", "approve"]],
     ["POST", ["admin", "withdrawals", "1e3", "approve"]], ["POST", ["admin", "withdrawals", "7", "approve", "x"]],
     ["POST", ["admin", "withdrawals", "7%2f..", "approve"]], ["POST", ["admin", "withdrawals", "..", "approve"]],
-    ["POST", ["admin", "withdrawals", "7", "delete"]], ["GET", ["admin", "agent-keys"]], ["GET", ["admin", "audit-logs"]],
+    ["POST", ["admin", "withdrawals", "7", "delete"]], ["POST", ["admin", "fraud-flags"]], ["GET", ["admin", "fraud-flags", "9", "resolve"]], ["POST", ["admin", "fraud-flags", "x", "resolve"]], ["DELETE", ["admin", "fraud-flags", "9"]], ["GET", ["admin", "agent-keys"]], ["GET", ["admin", "audit-logs"]],
     ["POST", ["auth", "mfa", "verify"]], ["POST", ["auth", "login"]], ["POST", ["admin", "withdrawals", "export.csv"]],
     ["POST", ["me", "withdrawals", "rules"]], ["POST", ["auth", "mfa", "status"]], ["GET", ["auth", "mfa", "setup"]],
     ["GET", ["admin", "withdrawals", "7"]], ["GET", ["admin", "withdrawals", "export.csv", "x"]],

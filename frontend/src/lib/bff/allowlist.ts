@@ -37,6 +37,8 @@ const RULES: ReadonlyArray<Rule> = [
   { method: "GET", segments: ["admin", "health"] },
   { method: "GET", segments: ["admin", "reconciliation"] },
   { method: "GET", segments: ["admin", "ledger-integrity"] },
+  { method: "GET", segments: ["admin", "fraud-flags"] },
+  { method: "POST", segments: ["admin", "fraud-flags", ID, "resolve"] },
   // Admin: duyệt/chi trả
   { method: "GET", segments: ["admin", "withdrawals"] },
   { method: "GET", segments: ["admin", "withdrawals", "export.csv"] },
