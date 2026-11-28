@@ -58,6 +58,9 @@ describe("FraudFlagsPage", () => {
     expect(adminFraudFlags).toHaveBeenLastCalledWith({ status: "open", limit: 50, offset: 50 });
     expect(screen.getByText("#1 · u1@x.vn")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Xem thêm" })).toBeNull();
+    cleanup(); adminFraudFlags.mockResolvedValue([flag(1)]); render(<FraudFlagsPage />);
+    await screen.findByText("#1 · u1@x.vn");
+    expect(screen.queryByRole("button", { name: "Xem thêm" })).toBeNull();
     cleanup(); adminFraudFlags.mockResolvedValue([]); render(<FraudFlagsPage />);
     await screen.findByText("Không có cờ gian lận.");
   });
