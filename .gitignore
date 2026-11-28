@@ -42,3 +42,4 @@ README-codex-kit.md
 *.zip
 node_modules
 .autopilot-runs/
+.claude/settings.json
