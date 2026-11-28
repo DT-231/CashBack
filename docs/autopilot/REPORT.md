@@ -1,6 +1,6 @@
 # Báo cáo autopilot (cập nhật 2026-11-28)
 
-Nhánh tích hợp: **`autopilot/main`** (đã push; `main` KHÔNG bị sửa). Số liệu cuối: `make test` **735 passed** (chạy 2 lần liên tiếp, 0 skip, DB sạch sau test), vitest **308 passed** (0 skip), `ruff`, `tsc`, `next build` sạch.
+Nhánh tích hợp: **`autopilot/main`** (đã push; `main` KHÔNG bị sửa). Số liệu cuối: `make test` **735 passed** (chạy 2 lần liên tiếp, 0 skip, DB sạch sau test), vitest **323 passed** (0 skip), `ruff`, `tsc`, `next build` sạch.
 
 ## Đã làm (mỗi mục: nhánh, đã qua thử đột biến; chi tiết số liệu trong `LOG.md`)
 - Gộp 7 nhánh chờ duyệt: T-019 (TOTP admin), prep/T-041 + T-041a/b (rút tiền: backend, BFF, UI người dùng và admin), startup-db-guard, chore/codex-forbidden-paths, docs/launch-gates-table.
@@ -8,6 +8,7 @@ Nhánh tích hợp: **`autopilot/main`** (đã push; `main` KHÔNG bị sửa). 
 - **Vận hành:** T-060 (sao lưu mã hóa + khôi phục, đã thử đầu-cuối trên DB dev), T-065 (che log mở rộng + `/admin/health`), runbook (máy nhà tắt, đối soát lệch, sao lưu, email, gian lận, TOTP, DB role).
 - **Tài khoản:** T-011 (xác minh email, quên/đặt lại mật khẩu; Mailer SMTP).
 - **Admin:** T-043 backend (tổng quan, người dùng + khóa/mở, đơn) và UI (T-043a, T-043b, T-066: đơn mồ côi, cookie Shopee, health, đối soát); UI khôi phục tài khoản (T-066).
+- **Admin (cờ gian lận):** UI `/admin/fraud-flags` (task/fraud-ui; đột biến 13: 10 bắt, 1 sống sót đã thêm test, 3 tương đương).
 - **Muse AI:** T-051 (`/agent/insights` + schema tool).
 - Codex: T-043a, T-043b, T-066 (UI), mỗi cái 1 đến 2 vòng phản hồi; tôi sửa trực tiếp các test còn thiếu sau vòng cuối.
 
@@ -21,7 +22,7 @@ Nhánh tích hợp: **`autopilot/main`** (đã push; `main` KHÔNG bị sửa). 
 Dữ liệu Shopee thật (ngày trả hoa hồng → `hold_days`; đơn mua thử; HAR có đủ trạng thái), domain riêng, xác nhận với Shopee về cashback, trang điều khoản (luật sư), `cashback_app`, sao lưu `BANK_ENC_KEY` và `BACKUP_ENC_KEY`, cron sao lưu, SMTP/Telegram nếu muốn, quyết định gỡ `legacy_api`. **Gỡ `.claude/settings.json` khỏi `autopilot/main` trước khi merge** (mục 9).
 
 ## Việc bị park / chưa làm
-Không có việc bị kẹt (`PARKED.md` trống). Chưa làm có chủ ý: import CSV báo cáo thủ công T-024 (cần mẫu CSV thật của Shopee), VietQR (cần bảng mã BIN), UI cờ gian lận, `script-src` CSP, luật gian lận theo UA/thiết bị (chưa có dữ liệu), gỡ `legacy_api`.
+Không có việc bị kẹt (`PARKED.md` trống). Chưa làm có chủ ý: import CSV báo cáo thủ công T-024 (cần mẫu CSV thật của Shopee), VietQR (cần bảng mã BIN), giao diện chọn kênh (cần PO quyết thiết kế), `script-src` CSP, luật gian lận theo UA/thiết bị (chưa có dữ liệu), gỡ `legacy_api`.
 `WITHDRAWALS_ENABLED` vẫn 0 ở mọi nơi; không có gọi live nào tới Shopee/Facebook/Cloudflare/Neon; không có secret trong repo.
 
 ## Cách xem và merge
