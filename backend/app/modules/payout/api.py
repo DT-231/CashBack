@@ -3,15 +3,16 @@ Mọi endpoint ghi dữ liệu có dependency `audit_context` (test contract ki�
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Header, Query, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 
 from app.core.clientip import request_ip
 from app.core.ratelimit import enforce_rate_limits
-from app.modules.audit.service import Actor, AuditContext
+from app.modules.audit.deps import admin_audit_context, audit_context  # noqa: F401  (re-export cho contract test)
+from app.modules.audit.service import AuditContext
 from app.modules.auth.api import current_user, require_admin
 from app.modules.auth.schemas import UserOut
 from app.modules.payout.schemas import (AdminWithdrawalOut, BankAccountIn, BankAccountOut, IdemKey, MarkPaidIn,
-                                        PayoutAccountOut, ReasonIn, WithdrawalIn, WithdrawalOut)
+                                        PayoutAccountOut, ReasonIn, WithdrawalIn, WithdrawalOut, WithdrawalRules)
 from app.modules.payout.service import PayoutService
 
 me_router = APIRouter(prefix="/api/v1/me", tags=["payout"])
@@ -21,20 +22,6 @@ admin_router = APIRouter(prefix="/api/v1/admin/withdrawals", tags=["payout-admin
 def _service(request: Request) -> PayoutService:
     st = request.app.state
     return PayoutService(st.settings, st.get_engine())
-
-
-def _actor_role(user: UserOut) -> str:
-    return {"member": "user", "staff": "staff", "admin": "admin"}.get(user.role, "user")
-
-
-def audit_context(request: Request, user: UserOut = Depends(current_user)) -> AuditContext:
-    st = request.app.state
-    return AuditContext(st.settings, Actor(user.id, _actor_role(user)), request_ip(request, st.settings))
-
-
-def admin_audit_context(request: Request, user: UserOut = Depends(require_admin)) -> AuditContext:
-    st = request.app.state
-    return AuditContext(st.settings, Actor(user.id, "admin"), request_ip(request, st.settings))
 
 
 def _limit(request: Request, scope: str, user: UserOut, per_hour: int) -> None:
@@ -61,6 +48,11 @@ def request_withdrawal(body: WithdrawalIn, request: Request, idempotency_key: Id
     return _service(request).request_withdrawal(user.id, body.amount_vnd, body.bank_account_id, idempotency_key, audit=audit)
 
 
+@me_router.get("/withdrawals/rules", response_model=WithdrawalRules)
+def withdrawal_rules(request: Request, _: UserOut = Depends(current_user)):
+    return _service(request).rules()
+
+
 @me_router.get("/withdrawals", response_model=list[WithdrawalOut])
 def my_withdrawals(request: Request, limit: int = Query(50, ge=1, le=100), offset: int = Query(0, ge=0),
                    user: UserOut = Depends(current_user)):
@@ -71,6 +63,14 @@ def my_withdrawals(request: Request, limit: int = Query(50, ge=1, le=100), offse
 def admin_list(request: Request, status: str | None = Query(None, pattern="^(requested|approved|rejected|processing|paid|failed)$"),
                limit: int = Query(50, ge=1, le=100), offset: int = Query(0, ge=0), _: UserOut = Depends(require_admin)):
     return _service(request).admin_list(status, limit, offset)
+
+
+@admin_router.get("/export.csv")
+def export_csv(request: Request, audit: AuditContext = Depends(admin_audit_context)):
+    """CSV chuyển khoản cho các yêu cầu đã duyệt (số tài khoản đầy đủ: ghi audit từng dòng). Không cache."""
+    body, count = _service(request).export_csv(audit=audit)
+    return Response(body, media_type="text/csv; charset=utf-8", headers={
+        "Cache-Control": "no-store", "Content-Disposition": 'attachment; filename="cashback-payouts.csv"', "X-Row-Count": str(count)})
 
 
 @admin_router.post("/{wid}/approve", response_model=AdminWithdrawalOut)

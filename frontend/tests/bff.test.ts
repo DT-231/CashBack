@@ -69,7 +69,7 @@ describe("allowlist", () => {
     expect(isAllowed("POST", ["links"])).toBe(true);
     expect(isAllowed("POST", ["me", "wallet"])).toBe(false);
     expect(isAllowed("GET", ["me", "wallet", "x"])).toBe(false);
-    expect(isAllowed("GET", ["admin", "users"])).toBe(false);
+    expect(isAllowed("GET", ["admin", "agent-keys"])).toBe(false);
     expect(isAllowed("GET", ["auth", "login"])).toBe(false);
     for (const bad of [["me", "..", "wallet"], ["..", "me", "wallet"], ["me", "%2e%2e"], ["me\\wallet"], ["me", ""], ["me/wallet"]]) {
       expect(isAllowed("GET", bad)).toBe(false);
@@ -156,7 +156,7 @@ describe("proxy", () => {
     const r = await handleProxy(req("GET", "/x"), ["me", "wallet"], f);
     expect(r.status).toBe(401);
     expect((await r.json()).error.code).toBe("unauthorized");
-    expect((await handleProxy(req("GET", "/x", { cookie: withTokens }), ["admin", "users"], f)).status).toBe(404);
+    expect((await handleProxy(req("GET", "/x", { cookie: withTokens }), ["admin", "agent-keys"], f)).status).toBe(404);
     expect((await handleProxy(req("POST", "/x", { cookie: withTokens, csrf: false }), ["links"], f)).status).toBe(403);
     expect(calls).toHaveLength(0);
   });
@@ -328,5 +328,200 @@ describe("cảnh báo BFF_SHARED_SECRET thiếu/ngắn", () => {
     vi.stubEnv("BFF_SHARED_SECRET", "x".repeat(16)); warn.mockClear(); await register();
     expect(warn).not.toHaveBeenCalled();
     warn.mockRestore();
+  });
+});
+
+describe("T-041: allowlist tường minh cho rút tiền, admin, TOTP", () => {
+  const ok: [string, string[]][] = [
+    ["GET", ["me", "bank-accounts"]], ["POST", ["me", "bank-accounts"]], ["GET", ["me", "withdrawals"]], ["POST", ["me", "withdrawals"]],
+    ["GET", ["me", "withdrawals", "rules"]], ["GET", ["auth", "mfa", "status"]], ["POST", ["auth", "mfa", "setup"]],
+    ["POST", ["auth", "mfa", "enable"]], ["POST", ["auth", "mfa", "disable"]], ["GET", ["admin", "withdrawals"]],
+    ["GET", ["admin", "withdrawals", "export.csv"]], ["POST", ["admin", "withdrawals", "7", "approve"]],
+    ["POST", ["admin", "withdrawals", "7", "reject"]], ["POST", ["admin", "withdrawals", "123456789012", "fail"]],
+    ["POST", ["admin", "withdrawals", "10", "mark-paid"]], ["GET", ["admin", "withdrawals", "7", "payout-account"]],
+    ["GET", ["admin", "overview"]], ["GET", ["admin", "users"]], ["PATCH", ["admin", "users", "5"]], ["GET", ["admin", "orders"]],
+    ["GET", ["admin", "orphans"]], ["POST", ["admin", "orphans", "9", "assign"]], ["PUT", ["admin", "shopee-session"]],
+    ["GET", ["admin", "shopee-session", "status"]], ["GET", ["admin", "health"]], ["GET", ["admin", "reconciliation"]], ["GET", ["admin", "ledger-integrity"]],
+    ["GET", ["admin", "fraud-flags"]], ["POST", ["admin", "fraud-flags", "9", "resolve"]],
+  ];
+  const no: [string, string[]][] = [
+    ["GET", ["admin", "withdrawals", "7", "approve"]], ["POST", ["admin", "withdrawals", "7", "payout-account"]],
+    ["DELETE", ["admin", "withdrawals", "7"]], ["PUT", ["me", "withdrawals"]], ["PATCH", ["me", "bank-accounts"]],
+    ["POST", ["admin", "withdrawals", "abc", "approve"]], ["POST", ["admin", "withdrawals", "0", "approve"]],
+    ["POST", ["admin", "withdrawals", "07", "approve"]], ["POST", ["admin", "withdrawals", "1234567890123", "approve"]],
+    ["POST", ["admin", "withdrawals", "-1", "approve"]], ["POST", ["admin", "withdrawals", "1.5", "approve"]],
+    ["POST", ["admin", "withdrawals", "1e3", "approve"]], ["POST", ["admin", "withdrawals", "7", "approve", "x"]],
+    ["POST", ["admin", "withdrawals", "7%2f..", "approve"]], ["POST", ["admin", "withdrawals", "..", "approve"]],
+    ["POST", ["admin", "withdrawals", "7", "delete"]], ["POST", ["admin", "fraud-flags"]], ["GET", ["admin", "fraud-flags", "9", "resolve"]], ["POST", ["admin", "fraud-flags", "x", "resolve"]], ["DELETE", ["admin", "fraud-flags", "9"]], ["GET", ["admin", "agent-keys"]], ["GET", ["admin", "audit-logs"]],
+    ["POST", ["auth", "mfa", "verify"]], ["POST", ["auth", "login"]], ["POST", ["admin", "withdrawals", "export.csv"]],
+    ["POST", ["me", "withdrawals", "rules"]], ["POST", ["auth", "mfa", "status"]], ["GET", ["auth", "mfa", "setup"]],
+    ["GET", ["admin", "withdrawals", "7"]], ["GET", ["admin", "withdrawals", "export.csv", "x"]],
+    ["POST", ["admin", "overview"]], ["GET", ["admin", "users", "5"]], ["PUT", ["admin", "users", "5"]], ["DELETE", ["admin", "users", "5"]],
+    ["PATCH", ["admin", "users", "abc"]], ["PATCH", ["admin", "users", "0"]], ["POST", ["admin", "orders"]], ["GET", ["admin", "orphans", "9", "assign"]],
+    ["POST", ["admin", "orphans", "x", "assign"]], ["GET", ["admin", "shopee-session"]], ["POST", ["admin", "shopee-session"]],
+    ["GET", ["admin", "shopee-session", "cookie"]], ["POST", ["admin", "health"]], ["POST", ["admin", "reconciliation"]], ["PUT", ["admin", "ledger-integrity"]],
+    ["GET", ["admin", "health", "x"]], ["GET", ["auth", "forgot"]], ["POST", ["auth", "reset"]], ["POST", ["auth", "verify"]], ["POST", ["admin", "shopee-session", "status"]], ["GET", ["admin", "agent-keys"]],
+  ];
+  it.each(ok)("cho qua %s %j", (m, segs) => expect(isAllowed(m, segs)).toBe(true));
+  it.each(no)("chặn %s %j", (m, segs) => expect(isAllowed(m, segs)).toBe(false));
+
+  const post = (path: string, headers: Record<string, string> = {}, cookie = withTokens) =>
+    new Request(`${ORIGIN}${path}`, { method: "POST", headers: { cookie, "x-csrf": "1", origin: ORIGIN, "content-type": "application/json", ...headers }, body: "{}" });
+  const KEY = "abcd1234-efgh-5678";
+
+  it("POST me/withdrawals bắt buộc Idempotency-Key hợp lệ và chuyển tiếp đúng giá trị đó", async () => {
+    for (const bad of [undefined, "", "short", "has space in it 123", "caf\u00e9-12345678", "a".repeat(101), "bad/slash-123456"]) {
+      const { f, calls } = fakeApi(() => ({ json: {} }));
+      const r = await handleProxy(post("/bff/api/me/withdrawals", bad === undefined ? {} : { "idempotency-key": bad }), ["me", "withdrawals"], f);
+      expect(r.status, String(bad)).toBe(400);
+      expect((await r.json()).error.code).toBe("idempotency_key_required");
+      expect(calls).toHaveLength(0);                                              // không gọi backend
+    }
+    const { f, calls } = fakeApi(() => ({ status: 201, json: { id: 1 } }));
+    const r = await handleProxy(post("/bff/api/me/withdrawals", { "idempotency-key": KEY }), ["me", "withdrawals"], f);
+    expect(r.status).toBe(201);
+    expect(calls[0].headers["idempotency-key"]).toBe(KEY);
+  });
+  it("Idempotency-Key vẫn được gửi khi BFF phải làm mới token trước", async () => {
+    const { f, calls } = fakeApi((c) => (c.url.endsWith("auth/refresh") ? { json: TOK(1) } : { status: 201, json: { id: 1 } }));
+    await handleProxy(post("/bff/api/me/withdrawals", { "idempotency-key": KEY }, refreshOnly), ["me", "withdrawals"], f);
+    expect(calls.map((c) => c.url.split("/api/v1/")[1])).toEqual(["auth/refresh", "me/withdrawals"]);
+    expect(calls[1].headers["idempotency-key"]).toBe(KEY);
+    expect(calls[0].headers["idempotency-key"]).toBeUndefined();
+  });
+  it("route khác không chuyển tiếp Idempotency-Key do khách gửi", async () => {
+    const { f, calls } = fakeApi(() => ({ json: {} }));
+    await handleProxy(post("/bff/api/me/bank-accounts", { "idempotency-key": KEY }), ["me", "bank-accounts"], f);
+    await handleProxy(post("/bff/api/admin/withdrawals/7/approve", { "idempotency-key": KEY }), ["admin", "withdrawals", "7", "approve"], f);
+    expect(calls).toHaveLength(2);
+    for (const c of calls) expect(c.headers["idempotency-key"]).toBeUndefined();
+  });
+  it("route admin: gửi Bearer, chuyển nguyên 403 mfa_required, chuyển Content-Disposition của CSV, không lộ Set-Cookie", async () => {
+    const { f, calls } = fakeApi(() => ({ status: 403, json: { error: { code: "mfa_required", message: "cần TOTP", request_id: "r" } }, headers: { "set-cookie": "x=1" } }));
+    const r = await handleProxy(new Request(`${ORIGIN}/bff/api/admin/withdrawals`, { headers: { cookie: withTokens } }), ["admin", "withdrawals"], f);
+    expect(r.status).toBe(403);
+    expect((await r.json()).error.code).toBe("mfa_required");
+    expect(r.headers.get("set-cookie")).toBeNull();
+    expect(calls[0].headers.authorization).toBe(`Bearer ${ACCESS}`);
+    const csv = fakeApi(() => ({ status: 200, headers: { "content-type": "text/csv; charset=utf-8", "content-disposition": 'attachment; filename="cashback-payouts.csv"', "x-row-count": "2" } }));
+    const c = await handleProxy(new Request(`${ORIGIN}/bff/api/admin/withdrawals/export.csv`, { headers: { cookie: withTokens } }), ["admin", "withdrawals", "export.csv"], csv.f);
+    expect(c.headers.get("content-disposition")).toContain("attachment");
+    expect(c.headers.get("x-row-count")).toBe("2");
+    expect(c.headers.get("cache-control")).toBe("no-store");
+  });
+  it("admin gọi sai id (không phải số) bị chặn trước khi tới backend", async () => {
+    const { f, calls } = fakeApi(() => ({ json: {} }));
+    const r = await handleProxy(post("/bff/api/admin/withdrawals/abc/approve"), ["admin", "withdrawals", "abc", "approve"], f);
+    expect(r.status).toBe(404);
+    expect(calls).toHaveLength(0);
+  });
+});
+
+describe("T-041: /bff/auth/mfa-verify đổi cookie sang phiên đã xác minh hai lớp", () => {
+  const verifyReq = (cookie = withTokens, extra: Record<string, string> = {}) =>
+    new Request(`${ORIGIN}/bff/auth/mfa-verify`, { method: "POST", headers: { cookie, "x-csrf": "1", origin: ORIGIN, "content-type": "application/json", ...extra }, body: JSON.stringify({ code: "123456" }) });
+
+  it("thành công: đặt cặp cookie mới (access Lax, refresh Strict), không trả token ra ngoài", async () => {
+    const { f, calls } = fakeApi(() => ({ json: TOK(9) }));
+    const r = await handleAuth(verifyReq(), "mfa-verify", f);
+    expect(r.status).toBe(200);
+    const text = await r.text();
+    expect(JSON.parse(text)).toEqual({ ok: true });
+    expect(text).not.toContain("NEW.access");
+    const cookies = setCookies(r);
+    expect(cookies).toHaveLength(2);
+    expect(cookies[0]).toContain("NEW.access.9");
+    expect(cookies[0]).toContain("SameSite=Lax");
+    expect(cookies[1]).toContain("SameSite=Strict");
+    expect(calls).toHaveLength(1);
+    expect(calls[0].url).toContain("/api/v1/auth/mfa/verify");
+    expect(calls[0].headers.authorization).toBe(`Bearer ${ACCESS}`);
+    expect(calls[0].body).toBe(JSON.stringify({ code: "123456" }));
+  });
+  it("sai mã: chuyển nguyên lỗi 401 mfa_invalid, KHÔNG đổi cookie, UI không coi là hết phiên", async () => {
+    const { f } = fakeApi(() => ({ status: 401, json: { error: { code: "mfa_invalid", message: "Mã không đúng", request_id: "r" } } }));
+    const r = await handleAuth(verifyReq(), "mfa-verify", f);
+    expect(r.status).toBe(401);
+    expect((await r.json()).error.code).toBe("mfa_invalid");
+    expect(setCookies(r)).toHaveLength(0);
+  });
+  it("access hết hạn nhưng còn refresh: làm mới trước rồi mới xác minh bằng access mới", async () => {
+    const { f, calls } = fakeApi((c) => (c.url.endsWith("auth/refresh") ? { json: TOK(1) } : { json: TOK(2) }));
+    const r = await handleAuth(verifyReq(refreshOnly), "mfa-verify", f);
+    expect(r.status).toBe(200);
+    expect(calls.map((c) => c.url.split("/api/v1/")[1])).toEqual(["auth/refresh", "auth/mfa/verify"]);
+    expect(calls[1].headers.authorization).toBe("Bearer NEW.access.1");
+    expect(setCookies(r)[0]).toContain("NEW.access.2");                               // cookie cuối là cặp từ verify
+  });
+  it("không có token nào: 401 và xóa cookie, không gọi backend", async () => {
+    const { f, calls } = fakeApi(() => ({ json: TOK(1) }));
+    const r = await handleAuth(verifyReq(""), "mfa-verify", f);
+    expect(r.status).toBe(401);
+    expect(calls).toHaveLength(0);
+    expect(setCookies(r).every((c) => c.includes("Max-Age=0"))).toBe(true);
+  });
+  it("bắt buộc X-CSRF/Origin/JSON như mọi thao tác ghi", async () => {
+    const { f, calls } = fakeApi(() => ({ json: TOK(1) }));
+    const noCsrf = new Request(`${ORIGIN}/bff/auth/mfa-verify`, { method: "POST", headers: { cookie: withTokens, origin: ORIGIN, "content-type": "application/json" }, body: "{}" });
+    expect((await handleAuth(noCsrf, "mfa-verify", f)).status).toBe(403);
+    expect((await handleAuth(verifyReq(withTokens, { origin: "https://evil.test" }), "mfa-verify", f)).status).toBe(403);
+    expect(calls).toHaveLength(0);
+  });
+  it("gửi IP khách cho backend khi có BFF_SHARED_SECRET (giới hạn thử mã theo IP)", async () => {
+    vi.stubEnv("BFF_SHARED_SECRET", "s".repeat(20));
+    const { f, calls } = fakeApi(() => ({ json: TOK(1) }));
+    await handleAuth(verifyReq(withTokens, { "cf-connecting-ip": "198.51.100.7" }), "mfa-verify", f);
+    expect(calls[0].headers["x-visitor-ip"]).toBe("198.51.100.7");
+  });
+});
+
+
+describe("khôi phục tài khoản qua /bff/auth/* (công khai)", () => {
+  const post = (action: string, body: unknown, o: { cookie?: string; csrf?: boolean; headers?: Record<string, string> } = {}) =>
+    new Request(`${ORIGIN}/bff/auth/${action}`, { method: "POST", headers: { ...(o.cookie ? { cookie: o.cookie } : {}), ...(o.csrf === false ? {} : { "x-csrf": "1" }), origin: ORIGIN, "content-type": "application/json", ...(o.headers ?? {}) }, body: JSON.stringify(body) });
+  const targets: [string, string][] = [["forgot", "auth/forgot"], ["resend-verification", "auth/verify/resend"], ["verify-email", "auth/verify"], ["reset", "auth/reset"]];
+
+  it.each(targets)("%s chuyển tiếp thân yêu cầu tới %s, không cần cookie, không gắn Bearer", async (action, path) => {
+    const { f, calls } = fakeApi(() => ({ status: action === "forgot" || action === "resend-verification" ? 202 : 204 }));
+    const body = { email: "a@b.c", token: "t".repeat(30), password: "mat-khau-moi-1234" };
+    const r = await handleAuth(post(action, body), action, f);
+    expect(r.status).toBe(action === "forgot" || action === "resend-verification" ? 202 : 204);
+    expect(calls).toHaveLength(1);
+    expect(calls[0].url).toBe(`http://api.test/api/v1/${path}`);
+    expect(calls[0].method).toBe("POST");
+    expect(calls[0].body).toBe(JSON.stringify(body));
+    expect(calls[0].headers.authorization).toBeUndefined();
+  });
+  it("bắt buộc X-CSRF/Origin/JSON, và chỉ nhận POST", async () => {
+    const { f, calls } = fakeApi(() => ({ status: 204 }));
+    for (const [action] of targets) {
+      expect((await handleAuth(post(action, {}, { csrf: false }), action, f)).status).toBe(403);
+      expect((await handleAuth(post(action, {}, { headers: { origin: "https://evil.test" } }), action, f)).status).toBe(403);
+    }
+    expect((await handleAuth(new Request(`${ORIGIN}/bff/auth/forgot`, { method: "GET" }), "forgot", f)).status).toBe(405);
+    expect(calls).toHaveLength(0);
+  });
+  it("đặt lại mật khẩu thành công xóa cookie của trình duyệt này; thất bại thì không", async () => {
+    const ok = fakeApi(() => ({ status: 204 }));
+    const r = await handleAuth(post("reset", { token: "t".repeat(30), password: "mat-khau-moi-1234" }, { cookie: withTokens }), "reset", ok.f);
+    expect(setCookies(r)).toHaveLength(2);
+    expect(setCookies(r).every((c) => c.includes("Max-Age=0"))).toBe(true);
+    const bad = fakeApi(() => ({ status: 400, json: { error: { code: "invalid_token", message: "x", request_id: "r" } } }));
+    const r2 = await handleAuth(post("reset", { token: "t".repeat(30), password: "mat-khau-moi-1234" }, { cookie: withTokens }), "reset", bad.f);
+    expect(r2.status).toBe(400);
+    expect((await r2.json()).error.code).toBe("invalid_token");
+    expect(setCookies(r2)).toHaveLength(0);
+    const other = await handleAuth(post("forgot", { email: "a@b.c" }, { cookie: withTokens }), "forgot", fakeApi(() => ({ status: 202 })).f);
+    expect(setCookies(other)).toHaveLength(0);                                      // chỉ `reset` xóa cookie
+    const verify = await handleAuth(post("verify-email", { token: "t".repeat(30) }, { cookie: withTokens }), "verify-email", fakeApi(() => ({ status: 204 })).f);
+    expect(setCookies(verify)).toHaveLength(0);
+  });
+  it("gửi IP khách cho backend (giới hạn tốc độ quên mật khẩu theo IP) và không thêm hành động lạ", async () => {
+    vi.stubEnv("BFF_SHARED_SECRET", "s".repeat(20));
+    const { f, calls } = fakeApi(() => ({ status: 202 }));
+    await handleAuth(post("forgot", { email: "a@b.c" }, { headers: { "cf-connecting-ip": "198.51.100.7" } }), "forgot", f);
+    expect(calls[0].headers["x-visitor-ip"]).toBe("198.51.100.7");
+    for (const unknown of ["verify", "password", "reset/", "Forgot", "forgot "]) expect((await handleAuth(post(unknown, {}), unknown, f)).status).toBe(404);
+    expect(calls).toHaveLength(1);
   });
 });

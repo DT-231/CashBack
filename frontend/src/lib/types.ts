@@ -22,4 +22,77 @@ export type OrderOut = {
   refund_state: "none" | "pending" | "available" | "cancelled" | "reversed";
   expected_release_at: string | null;
 };
+/** Rút tiền. Số tiền, mốc thời gian, cờ usable_now, transfer_note do backend tính; UI chỉ hiển thị (ADR 0005). */
+export type BankAccountOut = {
+  id: number; bank_code: string; account_name: string; last4: string;
+  usable_from: string; usable_now: boolean; created_at: string;
+};
+export type BankAccountIn = { bank_code: string; account_no: string; account_name: string };
+export type WithdrawalStatus = "requested" | "approved" | "rejected" | "processing" | "paid" | "failed";
+export type WithdrawalOut = {
+  id: number; amount_vnd: number; status: WithdrawalStatus; bank_account_id: number | null;
+  bank_code: string | null; last4: string | null; provider_ref: string | null; decided_reason: string | null;
+  created_at: string; updated_at: string;
+};
+export type AdminWithdrawalOut = WithdrawalOut & {
+  transfer_note: string; user_id: number; approved_by: number | null; approved_at: string | null;
+  paid_by: number | null; paid_at: string | null;
+};
+export type PayoutAccountOut = { withdrawal_id: number; amount_vnd: number; bank_code: string; account_no: string; account_name: string };
+export type WithdrawalRules = {
+  withdrawals_enabled: boolean; min_withdraw_vnd: number; bank_change_cooldown_hours: number; max_bank_accounts: number;
+};
+/** Đăng nhập hai lớp (TOTP) */
+export type MfaStatus = { enabled: boolean; pending: boolean; verified: boolean };
+export type MfaSetup = { secret: string; otpauth_uri: string };
+export type MfaEnableOut = { recovery_codes: string[] };
+/** Admin console (T-043/T-044/T-063). Số tiền VND nguyên; micro = hoa hồng Shopee ×1e5 (chỉ hiển thị qua formatMicro nếu có, UI không tự quy đổi). */
+export type AdminOverview = {
+  days: number;
+  users: { total: number; new: number; locked: number };
+  clicks: number; links: number;
+  orders: Record<string, { count: number; commission_micro: number; commission_vnd: number }>;
+  orphans_open: number;
+  wallet_totals_vnd: { pending: number; available: number; held: number };
+  withdrawals: Record<string, { count: number; amount_vnd: number }>;
+  last_sync: { result: string; finished_at: string } | null;
+};
+export type AdminUser = {
+  id: number; email: string; role: "member" | "staff" | "admin"; status: "unverified" | "active" | "locked"; created_at: string;
+  available_vnd: number; pending_vnd: number; held_vnd: number;
+};
+export type AdminOrder = {
+  id: number; order_sn: string; status: "PENDING" | "COMPLETED" | "CANCELLED" | "RETURNED"; source_type: string;
+  user_id: number | null; post_id: number | null; commission_micro: number; commission_vnd: number; purchase_time: string | null; completed_at: string | null;
+};
+export type AdminOrphan = {
+  id: number; order_sn: string; status: string; commission_micro: number; commission_vnd: number; purchase_time: string | null; utm_content: string | null; reason: string;
+};
+export type ShopeeSessionStatus = { has_cookie: boolean; status: "unknown" | "healthy" | "degraded" | "expired" | "blocked"; last_ok_at: string | null; failure_count: number; updated_at: string | null };
+/** Sức khỏe hệ thống và đối soát (T-065, T-052). */
+export type HealthStatus = "ok" | "warn" | "down" | "unknown" | "not_configured";
+export type AdminHealth = {
+  overall: "ok" | "warn" | "down";
+  db: { status: HealthStatus; ms?: number };
+  sync: { status: HealthStatus; result?: string; age_hours?: number };
+  shopee_session: { status: HealthStatus; failure_count?: number; has_cookie?: boolean };
+  backup: { status: HealthStatus; latest_age_hours?: number; count?: number };
+  warnings: string[];
+};
+export type OrderBucket = { count: number; commission_micro: number; attributed_micro: number; commission_vnd: number; attributed_vnd: number };
+export type Reconciliation = {
+  month: string;
+  orders: Record<string, OrderBucket>;
+  ledger_by_order_status: Record<string, Record<string, number>>;
+  completed: { shopee_commission_vnd: number; attributed_commission_vnd: number; user_share_accrued_vnd: number; platform_margin_vnd: number };
+  paid_out_vnd: number; admin_loss_vnd: number; note: string;
+};
+export type LedgerIntegrity = {
+  wallets_checked: number; mismatches: number;
+  samples: { user_id: number; stored_pending: number; derived_pending: number; stored_available: number; derived_available: number; stored_held: number; derived_held: number }[];
+};
 export type ApiErrorBody = { error: { code: string; message: string; request_id: string | null } };
+export type FraudFlag = {
+  id: number; user_id: number; email: string; rule: string; score: number; status: "open" | "dismissed" | "confirmed";
+  detail: Record<string, number>; created_at: string; updated_at: string; resolved_by: number | null; resolved_at: string | null; resolution_note: string | null;
+};

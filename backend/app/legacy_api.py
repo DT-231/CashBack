@@ -30,8 +30,7 @@ def health(request: Request):
             "cookie_set": bool(s.shopee_cookie.get_secret_value()),
             "web_cookie_set": bool(s.shopee_web_cookie.get_secret_value()), "engine": s.search_engine,
             "feed_configured": bool(s.feed_file),
-            "bff_enabled": s.bff_enabled, "visitor_ip": s.visitor_ip_status,
-            "degraded": bool(s.startup_warnings()), "warnings": s.startup_warnings()}
+            "degraded": bool(s.startup_warnings())}          # chi tiết cảnh báo chỉ ở /api/v1/admin/health (admin): /health công khai không nên lộ cấu hình yếu
 
 
 @router.get("/")

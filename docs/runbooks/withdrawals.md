@@ -11,6 +11,9 @@ Mã: `backend/app/modules/payout/` (api, service, repository), `backend/app/modu
 ## Luồng
 `POST /me/bank-accounts` (chờ `bank_change_cooldown_hours`, mặc định 48 giờ, trước khi rút lần đầu về tài khoản đó) → `POST /me/withdrawals` (header `Idempotency-Key` bắt buộc; khóa `rút được → đang khóa` trong một transaction có khóa dòng ví; tối thiểu `min_withdraw_vnd`; một yêu cầu mở mỗi user) → admin `approve` → admin `GET .../payout-account` (giải mã số tài khoản, **ghi audit `payout.view_account` mỗi lần**) → chuyển khoản ngoài hệ thống → `mark-paid` kèm mã giao dịch ngân hàng (duy nhất, không dùng lại). Từ chối (`reject`) hoặc chuyển khoản lỗi (`fail`) hoàn tiền bằng bút toán `refund_hold` mới, không sửa bút toán cũ.
 
+## Chi trả hàng loạt bằng CSV
+`GET /api/v1/admin/withdrawals/export.csv` (admin + TOTP) xuất các yêu cầu **đã duyệt** (tối đa 200 dòng): `request_id, amount_vnd, bank_code, account_no, account_name, transfer_note`. `transfer_note` = `CASHBACK W<mã yêu cầu>`: dán vào nội dung chuyển khoản để đối soát sao kê với `withdrawals.id`. **Mỗi dòng xuất ghi audit `payout.view_account`** (số tài khoản được giải mã) cộng một dòng `payout.export`; lỗi ghi audit thì không trả dữ liệu. **Ô CSV bắt đầu bằng `= + - @` hoặc tab/CR/LF được vô hiệu hóa** (thêm dấu nháy đơn đứng trước) để Excel/Sheets không chạy công thức độc. Tệp chứa số tài khoản đầy đủ: lưu an toàn, xóa sau khi chuyển; không gửi qua chat/email. Sau khi chuyển, dùng `mark-paid` kèm mã giao dịch ngân hàng cho từng yêu cầu.
+
 ## Quyền
 Chỉ **admin** được duyệt, từ chối, đánh dấu đã chi trả, xem số tài khoản. **Staff không xem số tài khoản và không duyệt tiền** (kiểm ở API `require_admin` và lại ở service). Người dùng chỉ thấy 4 số cuối tài khoản của mình; số đầy đủ không bao giờ có trong response người dùng, log, audit hay thông báo lỗi.
 

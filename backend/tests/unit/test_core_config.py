@@ -98,3 +98,64 @@ def test_bff_warning_is_logged_at_startup(monkeypatch, caplog):
     with caplog.at_level(logging.WARNING):
         main_api.main()
     assert called.get("ran") and any("BFF_SHARED_SECRET" in r.getMessage() for r in caplog.records)
+
+
+def test_withdrawals_cannot_be_enabled_without_mandatory_admin_totp():
+    import base64
+    import os
+    key = base64.urlsafe_b64encode(os.urandom(32)).decode()
+    with pytest.raises(ConfigError, match="ADMIN_MFA_REQUIRED"):
+        Settings(withdrawals_enabled=True, bank_enc_key=key, admin_mfa_required=False).validate_for_serving()
+    Settings(withdrawals_enabled=True, bank_enc_key=key).validate_for_serving()
+    Settings(withdrawals_enabled=False, admin_mfa_required=False).validate_for_serving()      # tắt cờ chỉ được khi chưa rút tiền
+    assert Settings().admin_mfa_required is True                                           # mặc định BẬT
+def test_main_refuses_to_start_when_withdrawals_enabled_and_db_user_is_privileged(monkeypatch):
+    from app import main_api
+    from app.core import db as dbmod
+    started = {}
+    import base64
+    import os
+    key = base64.urlsafe_b64encode(os.urandom(32)).decode()
+    monkeypatch.setattr(main_api, "load_settings", lambda: Settings(withdrawals_enabled=True, bank_enc_key=key, database_url="postgresql://x"))
+    monkeypatch.setattr(dbmod, "make_engine", lambda s: type("E", (), {"dispose": lambda self: None})())
+    monkeypatch.setattr("uvicorn.run", lambda *a, **k: started.setdefault("ran", True))
+
+    def refuse(engine):
+        raise ConfigError("user DB là superuser")
+    monkeypatch.setattr(dbmod, "assert_least_privilege", refuse)
+    with pytest.raises(ConfigError, match="superuser"):
+        main_api.main()
+    assert "ran" not in started                                        # không khởi động server
+
+
+def test_main_skips_the_db_privilege_check_when_withdrawals_disabled(monkeypatch):
+    from app import main_api
+    from app.core import db as dbmod
+    called = []
+    monkeypatch.setattr(main_api, "load_settings", lambda: Settings())
+    monkeypatch.setattr(dbmod, "assert_least_privilege", lambda e: called.append(1))
+    monkeypatch.setattr("uvicorn.run", lambda *a, **k: None)
+    main_api.main()
+    assert called == []
+
+
+def test_subid_keys_current_first_then_previous_and_validated():
+    cur, old1, old2 = "c" * 20, "a" * 20, "b" * 20
+    assert Settings(subid_secret=cur).subid_keys() == (cur,)
+    assert Settings(subid_secret=cur, subid_secret_previous=f"{old1}, {old2}").subid_keys() == (cur, old1, old2)
+    for bad in ({"subid_secret": cur, "subid_secret_previous": "short"},          # khóa cũ quá ngắn
+                {"subid_secret": cur, "subid_secret_previous": cur},               # trùng khóa hiện hành
+                {"subid_secret": cur, "subid_secret_previous": f"{old1},{old1}"},  # trùng nhau
+                {"subid_secret": cur, "subid_secret_previous": ",".join(chr(100 + i) * 20 for i in range(4))},   # > 3
+                {"subid_secret": "short", "subid_secret_previous": old1}):
+        with pytest.raises(ConfigError):
+            Settings(**bad).subid_keys()
+    with pytest.raises(ConfigError):
+        Settings(subid_secret=cur, subid_secret_previous="short").validate_for_serving()     # khởi động từ chối cấu hình sai
+    Settings(subid_secret=cur, subid_secret_previous=old1).validate_for_serving()
+
+
+def test_encode_never_uses_previous_keys():
+    from app.core import subid
+    s = Settings(subid_secret="c" * 20, subid_secret_previous="a" * 20)
+    assert subid.decode(subid.encode("l", 1, 1, s.subid_secret.get_secret_value()), ["x" * 20, "a" * 20]).status == "invalid"

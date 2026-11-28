@@ -216,3 +216,42 @@ def test_visitor_ip_ignored_when_no_secret_configured(pg, make_settings):
     client = api(pg, make_settings, rl_login_per_minute=2)       # bff_shared_secret để trống
     codes = [bff_login(client, f"198.51.100.{60 + n}", secret=BFF).status_code for n in range(3)]
     assert codes == [401, 401, 429]
+
+
+def test_expired_counters_are_cleaned_up_opportunistically_and_fresh_ones_are_kept(pg, make_settings, monkeypatch):
+    client = api(pg, make_settings, trust_proxy_headers=True)
+    old_key, fresh_key = f"itest_old:{uuid.uuid4().hex[:8]}", f"itest_fresh:{uuid.uuid4().hex[:8]}"
+    pg[2].update({old_key, fresh_key})
+    with pg[0].begin() as c:
+        c.execute(text("INSERT INTO rate_limits(key, count, window_start) VALUES (:o, 5, now() - interval '2 days'), (:f, 5, now())"), {"o": old_key, "f": fresh_key})
+    monkeypatch.setattr("app.core.ratelimit.random.random", lambda: 0.0)                  # ép nhánh dọn dẹp (xác suất 1%) chạy
+    login(client)
+    with pg[0].connect() as c:
+        keys = {r[0] for r in c.execute(text("SELECT key FROM rate_limits WHERE key IN (:o, :f)"), {"o": old_key, "f": fresh_key})}
+    assert keys == {fresh_key}                                                              # bộ đếm quá 1 ngày bị xóa, bộ đếm còn hạn được giữ
+
+
+def test_cleanup_failure_never_breaks_the_request(pg, make_settings, monkeypatch):
+    import logging
+    client = api(pg, make_settings, trust_proxy_headers=True)
+    monkeypatch.setattr("app.core.ratelimit.random.random", lambda: 0.0)
+    real_text = text
+
+    def broken(sql, *a, **k):
+        if "DELETE FROM rate_limits" in str(sql):
+            raise RuntimeError("cleanup boom")
+        return real_text(sql, *a, **k)
+    monkeypatch.setattr("app.core.ratelimit.text", broken)
+    seen = []
+
+    class Spy(logging.Handler):
+        def emit(self, record):
+            seen.append(record.getMessage())
+    spy = Spy()
+    logging.getLogger("app.core.ratelimit").addHandler(spy)                                 # app đã thay handler gốc nên caplog không thấy
+    try:
+        r = login(client, address="198.51.100.99")
+    finally:
+        logging.getLogger("app.core.ratelimit").removeHandler(spy)
+    assert r.status_code == 401                                                             # đăng nhập sai vẫn trả lời bình thường
+    assert "rate limit cleanup failed" in seen

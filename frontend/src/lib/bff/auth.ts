@@ -1,4 +1,4 @@
-/** /bff/auth/{register,login,logout}. Backend trả token trong body; BFF đổi thành cookie HttpOnly và KHÔNG trả token ra ngoài. */
+/** /bff/auth/{register,login,logout,mfa-verify,forgot,reset,verify-email,resend-verification}. Backend trả token trong body; BFF đổi thành cookie HttpOnly và KHÔNG trả token ra ngoài. */
 import { checkCsrf } from "./csrf";
 import { clearCookies, readTokens, sessionCookies, type Tokens } from "./cookies";
 import { errorResponse } from "./errors";
@@ -26,6 +26,27 @@ export async function handleAuth(request: Request, action: string, f: Fetch = fe
         return h;
       })(),
     });
+  }
+  // Khôi phục tài khoản (công khai, không cần cookie). Token nằm trong thân POST, không bao giờ trong URL.
+  const recovery: Record<string, string> = { forgot: "auth/forgot", "resend-verification": "auth/verify/resend", "verify-email": "auth/verify", reset: "auth/reset" };
+  if (action in recovery) {
+    const r = await callApi(f, "POST", recovery[action], { body: await request.text(), requestId: rid, visitor });
+    // Đặt lại mật khẩu thành công: backend đã đăng xuất mọi thiết bị; xóa luôn cookie của trình duyệt này.
+    return passThrough(r, action === "reset" && r.ok ? clearCookies() : []);
+  }
+  if (action === "mfa-verify") {
+    // Backend trả cặp token MỚI có trạng thái đã xác minh hai lớp: BFF thay cookie, không trả token ra trình duyệt.
+    const { access, refresh } = readTokens(request);
+    let token = access;
+    if (!token && refresh) token = (await refreshTokens(f, refresh, visitor))?.access_token;
+    if (!token) return errorResponse(401, "unauthorized", "Chưa đăng nhập", clearCookies());
+    const body = await request.text();
+    const r = await callApi(f, "POST", "auth/mfa/verify", { token, body, requestId: rid, visitor });
+    if (!r.ok) return passThrough(r);                      // mfa_invalid, mfa_state, rate_limited...: chuyển nguyên, KHÔNG đổi cookie
+    const t = (await r.json()) as Tokens;
+    const h = new Headers({ "content-type": "application/json", "cache-control": "no-store" });
+    for (const c of sessionCookies(t)) h.append("set-cookie", c);
+    return new Response(JSON.stringify({ ok: true }), { status: 200, headers: h });
   }
   if (action === "logout") {
     // Muốn thu hồi refresh token ở backend thì cần access token còn hạn: nếu hết hạn thì làm mới rồi mới đăng xuất.

@@ -15,6 +15,7 @@ from app.core.config import ConfigError, Settings, load_settings
 from app.core.db import make_engine
 from app.core.errors import error_body, register_error_handlers
 from app.core.logging import configure_logging, set_request_id
+from app.integrations.mail import build_mailer
 from app.integrations.shopee import build_client
 from app.modules.ai_posts import api as ai_posts_api
 from app.modules.auth import api as auth_api
@@ -22,6 +23,13 @@ from app.modules.clicks import api as clicks_api
 from app.modules.links.affiliate_link import LinkInputError
 from app.modules.links import api as links_api
 from app.modules.products.service import ProductSearch
+from app.modules.adminstats import api as adminstats_api
+from app.modules.auth import admin_api as auth_admin_api
+from app.modules.auth import mfa_api
+from app.modules.fraud import api as fraud_api
+from app.modules.insights import api as insights_api
+from app.modules.orders import api as orders_api
+from app.modules.shopee_session import api as shopee_session_api
 from app.modules.payout import api as payout_api
 from app.modules.wallet import api as wallet_api
 
@@ -36,6 +44,7 @@ def create_app(settings: Settings | None = None, shopee=None, engine: Engine | N
     app.state.shopee = shopee or build_client(settings)
     app.state.search = ProductSearch(settings, app.state.shopee)
     app.state.engine = engine
+    app.state.mailer = build_mailer(settings)        # test thay bằng bản giả
 
     engine_lock = threading.Lock()
 
@@ -79,6 +88,13 @@ def create_app(settings: Settings | None = None, shopee=None, engine: Engine | N
     app.include_router(links_api.router)
     app.include_router(clicks_api.router)
     app.include_router(auth_api.router)
+    app.include_router(mfa_api.router)
+    app.include_router(auth_admin_api.router)
+    app.include_router(adminstats_api.router)
+    app.include_router(orders_api.router)
+    app.include_router(fraud_api.router)
+    app.include_router(insights_api.router)
+    app.include_router(shopee_session_api.router)
     app.include_router(wallet_api.router)
     app.include_router(wallet_api.orders_router)
     app.include_router(payout_api.me_router)
@@ -90,6 +106,11 @@ def main() -> None:
     import uvicorn
     s = load_settings()
     s.validate_for_serving()
+    if s.withdrawals_enabled:      # bật rút tiền: API không được chạy bằng superuser/chủ bảng (kiểm bằng truy vấn)
+        from app.core.db import assert_least_privilege, make_engine
+        engine = make_engine(s)
+        assert_least_privilege(engine)
+        engine.dispose()
     for w in s.startup_warnings():
         log.warning(w)
     uvicorn.run(create_app(s), host=s.host, port=s.port, log_config=None)

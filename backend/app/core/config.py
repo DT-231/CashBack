@@ -6,6 +6,7 @@ Không đọc env lúc import. Biến thật thắng file `.env` (giống hành 
 from __future__ import annotations
 
 from pathlib import Path
+from typing import ClassVar
 
 from pydantic import AliasChoices, Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -31,6 +32,8 @@ class Settings(BaseSettings):
     link_template: str = ""
     sub_id_pad: bool = True
     subid_secret: SecretStr = SecretStr("")  # >= 16 byte, ký sub_id v1
+    # Khóa cũ (cách nhau dấu phẩy) để GIẢI MÃ link đã phát hành trước khi đổi khóa (T-018). Không bao giờ dùng để ký. Tối đa 3.
+    subid_secret_previous: SecretStr = SecretStr("")
 
     # --- Shopee (chỉ integrations/shopee được dùng) ---
     shopee_cookie: SecretStr = Field(
@@ -80,6 +83,38 @@ class Settings(BaseSettings):
     rl_withdraw_per_hour: int = Field(default=5, ge=1)      # yêu cầu rút theo user
     rl_bank_add_per_hour: int = Field(default=5, ge=1)      # thêm tài khoản ngân hàng theo user
 
+    # --- phát hiện gian lận (T-053): chỉ tạo CỜ cho admin xem, không tự khóa/giữ tiền ---
+    fraud_shared_ip_users: int = Field(default=3, ge=2)           # >= chừng này chủ link khác nhau có click từ cùng một ip_hash trong 7 ngày
+    fraud_cancel_min_orders: int = Field(default=5, ge=1)         # chỉ xét user có ít nhất chừng này đơn trong 60 ngày
+    fraud_cancel_rate_pct: int = Field(default=50, ge=1, le=100)  # hủy + trả hàng >= chừng này % số đơn
+    fraud_burst_clicks_per_hour: int = Field(default=60, ge=2)    # >= chừng này click/giờ từ cùng ip_hash vào cùng một link
+    fraud_dismiss_cooldown_days: int = Field(default=30, ge=0)    # cờ bị bỏ qua thì không tạo lại cùng (user, rule) trong chừng này ngày
+
+    # --- email giao dịch (T-011): thiếu SMTP_HOST/SMTP_FROM = không gửi ---
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_password: SecretStr = SecretStr("")
+    smtp_from: str = ""
+    web_origin: str = ""                       # https://<domain>: gốc của liên kết trong email (verify/reset). Rỗng = không gửi liên kết
+    rl_forgot_per_hour: int = Field(default=5, ge=1)       # quên mật khẩu / gửi lại xác minh, theo IP; theo email = 3 lần/giờ
+
+    # --- sao lưu (T-060, T-065): thư mục chứa tệp .dump.enc để /admin/health báo tuổi bản mới nhất; rỗng = chưa cấu hình ---
+    backup_dir: str = ""
+    backup_max_age_hours: int = Field(default=36, ge=1)
+
+    # --- cảnh báo vận hành (T-023): rỗng = không gửi ---
+    telegram_bot_token: SecretStr = SecretStr("")
+    telegram_chat_id: str = ""
+    alert_repeat_hours: int = Field(default=6, ge=1, le=168)      # còn lỗi thì nhắc lại sau chừng này giờ
+    alert_after_failures: int = Field(default=3, ge=1)            # lỗi thường (không phải bị chặn) báo sau chừng này lần liên tiếp
+
+    # --- đăng nhập hai lớp cho admin (TOTP, T-019) ---
+    admin_mfa_required: bool = True          # route admin yêu cầu admin đã bật TOTP và đã xác minh gần đây. Bật rút tiền mà tắt cờ này: từ chối khởi động
+    mfa_max_age_hours: int = Field(default=12, ge=1, le=168)   # sau chừng này giờ kể từ lần nhập mã phải nhập lại
+    mfa_issuer: str = "CashBack"
+    rl_mfa_per_minute: int = Field(default=5, ge=1)            # thử mã theo user và theo IP
+
     # --- đăng nhập (module auth) ---
     jwt_secret: SecretStr = SecretStr("")    # >= 32 ký tự; rỗng thì endpoint auth trả 503
     access_ttl_min: int = 15
@@ -110,6 +145,21 @@ class Settings(BaseSettings):
         """Tool API bắt buộc có khóa khi đã đặt AGENT_API_KEY hoặc khi lắng nghe ngoài localhost."""
         return bool(self.agent_api_key.get_secret_value()) or not self.is_loopback
 
+    MAX_PREVIOUS_SUBID_KEYS: ClassVar[int] = 3
+
+    def subid_keys(self) -> tuple[str, ...]:
+        """(khóa hiện hành, *khóa cũ) để giải mã. Ném ConfigError nếu thiếu/ngắn/trùng/quá nhiều."""
+        cur = self.subid_secret.get_secret_value()
+        old = [x.strip() for x in self.subid_secret_previous.get_secret_value().split(",") if x.strip()]
+        keys = (cur, *old)
+        if any(len(k.encode()) < 16 for k in keys):
+            raise ConfigError("SUBID_SECRET và SUBID_SECRET_PREVIOUS phải có ít nhất 16 byte mỗi khóa")
+        if len(set(keys)) != len(keys):
+            raise ConfigError("SUBID_SECRET_PREVIOUS không được trùng khóa hiện hành hay trùng nhau")
+        if len(old) > self.MAX_PREVIOUS_SUBID_KEYS:
+            raise ConfigError(f"Tối đa {self.MAX_PREVIOUS_SUBID_KEYS} khóa cũ (mỗi khóa thêm tăng xác suất khớp nhầm chữ ký 3 ký tự)")
+        return keys
+
     def require(self, *names: str) -> None:
         missing = []
         for n in names:
@@ -139,6 +189,10 @@ class Settings(BaseSettings):
         return out
 
     def validate_for_serving(self) -> None:
+        if self.subid_secret_previous.get_secret_value().strip():
+            self.subid_keys()
+        if self.withdrawals_enabled and not self.admin_mfa_required:
+            raise ConfigError("WITHDRAWALS_ENABLED=1 nhưng ADMIN_MFA_REQUIRED=0: không được bật rút tiền khi admin chưa bắt buộc TOTP")
         if self.withdrawals_enabled:
             from app.core.crypto import keyring   # chỉ khi bật rút tiền; ném ConfigError nếu khóa thiếu/yếu/sai định dạng
             keyring(self)

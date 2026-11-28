@@ -5,20 +5,25 @@ Nguồn dữ liệu máy đọc: `backlog/issues.csv` (cùng nội dung).
 
 ## Điều kiện mở đăng ký cho người ngoài
 
-**T-061 (đưa web ra Internet cho người ngoài) không được bắt đầu khi chưa tick đủ mục dưới.** Người duyệt từng mục là PO; Claude cập nhật dấu tick khi có bằng chứng (link commit, ghi chú, ảnh chụp).
+**T-061 (đưa web ra Internet cho người ngoài) không được bắt đầu khi chưa có đủ dòng "Xong".** Người duyệt từng mục là PO; Claude cập nhật bảng khi có bằng chứng (commit, ghi chú, ảnh chụp). Cập nhật lần cuối: 2026-11-28.
 
-- [ ] **T-017 xong** (X-Visitor-IP + bí mật chung, kèm T-016 đã merge): giới hạn tốc độ tính đúng theo từng khách qua BFF
-- [ ] **Có domain riêng** trên Cloudflare DNS (Tunnel hostname cố định, cookie `__Host-`, `WEB_ORIGIN`; xem `docs/06` mục 0). Tunnel nhanh `trycloudflare` không được dùng
-- [ ] **Domain đã được đăng ký làm kênh quảng bá** trong hồ sơ Affiliate Shopee (tab "Thông tin truyền thông"), và **tên domain không chứa thương hiệu Shopee** (PO kiểm điều khoản về dùng tên/nhãn hiệu; dùng tên có chữ "shopee" có thể bị coi là mạo danh)
-- [ ] **Đơn mua thử thật khớp sub_id**: làm theo `docs/runbooks/live-attribution-test.md`; `utm_content` có chữ ký còn nguyên và giải mã `ok`
-- [ ] **PO đã xác nhận với Shopee (bằng văn bản) về mô hình cashback** (rủi ro R-02): chia lại hoa hồng cho người dùng có được phép không, cần đăng ký kênh nào
-- [ ] **Trang Điều khoản và Chính sách quyền riêng tư** (T-064): bản nháp, **cần tư vấn pháp lý** trước khi dùng thật (R-06, R-17)
-- [ ] **`audit_logs` xong** (phần còn thiếu của T-013; đã làm ở nhánh `task/audit-logs`, chờ PO duyệt merge): ghi ai/hành động/đối tượng/thời điểm/IP băm cho thao tác admin và tiền
-- [ ] **Admin bật đăng nhập hai lớp (TOTP) trước khi bật rút tiền thật** (T-019; duyệt/chi trả/xem số tài khoản chỉ admin, nên tài khoản admin là điểm yếu nhất)
-- [ ] **`BANK_ENC_KEY` đã sao lưu NGOÀI `.env`** (hai nơi, tách bản sao lưu DB); mất khóa = không trả được cho ai (`docs/runbooks/withdrawals.md`)
-- [ ] **Ứng dụng chạy bằng tài khoản DB riêng `cashback_app`** (không sở hữu bảng, không TRUNCATE, không sửa/xóa sổ cái và `audit_logs`): `infra/db/app-role.sql`, `docs/runbooks/db-roles.md`
+**Cờ `WITHDRAWALS_ENABLED=0` ở MỌI môi trường (dev, thử nghiệm, production) cho tới khi hết bảng này** (PO, 2026-11-28). Khởi động bật cờ này còn bị từ chối nếu khóa mã hóa yếu, admin chưa bắt buộc TOTP, hoặc user DB là superuser/chủ bảng.
 
-Ghi chú: các mục trên là điều kiện **mở cho người ngoài**. Dùng nội bộ (chỉ PO và người quen, không quảng bá) vẫn có thể thử trên máy mình bằng tunnel nhanh.
+| # | Mục | Trạng thái | Ai làm | Ghi chú / bằng chứng |
+|---|---|---|---|---|
+| 1 | T-017 xong (X-Visitor-IP + bí mật chung; kèm T-016) | **Xong** | Claude | merge `f6b29c8`, `b437d17` |
+| 2 | Có domain riêng trên Cloudflare DNS (Tunnel hostname cố định, cookie `__Host-`, `WEB_ORIGIN`); không dùng tunnel nhanh | Chưa | PO | `docs/06` mục 0 |
+| 3 | Domain đã đăng ký làm kênh quảng bá trong hồ sơ Affiliate Shopee, và tên domain không chứa thương hiệu Shopee | Chưa | PO | PO kiểm điều khoản về dùng tên/nhãn hiệu |
+| 4 | Đơn mua thử thật khớp sub_id (`utm_content` còn nguyên chữ ký, giải mã `ok`) | Chưa | PO mua và gửi dữ liệu; Claude giải mã | `docs/runbooks/live-attribution-test.md` |
+| 5 | PO xác nhận với Shopee (bằng văn bản) về mô hình cashback (R-02) | Chưa | PO | |
+| 6 | Trang Điều khoản và Chính sách quyền riêng tư: bản nháp rồi tư vấn pháp lý (R-06, R-17) | Chưa (T-064) | Claude viết nháp; PO đưa luật sư | |
+| 7 | `audit_logs` xong (ai, hành động, đối tượng, thời điểm, IP băm; không mật khẩu/token/số tài khoản) | **Xong** | Claude | merge `d8073c0` |
+| 8 | Admin bật đăng nhập hai lớp TOTP trước khi bật rút tiền thật (T-019) | Mã xong, đã gộp vào `autopilot/main` (chờ PO merge vào `main`); admin bật thật: **Chưa** | Claude (mã); PO (bật TOTP cho tài khoản admin thật) | `docs/runbooks/admin-mfa.md` |
+| 9 | `BANK_ENC_KEY` sao lưu NGOÀI `.env` (hai nơi, tách bản sao lưu DB) | Chưa | PO | `docs/runbooks/withdrawals.md` |
+| 10 | Ứng dụng chạy bằng tài khoản DB riêng `cashback_app` (không sở hữu bảng, không TRUNCATE, không sửa/xóa sổ cái và `audit_logs`) | Script, test, kiểm tra lúc khởi động: **xong** (T-040); triển khai thật: **Chưa** | Claude (script/test); PO (tạo role, đổi `DATABASE_URL` của API) | `infra/db/app-role.sql`, `docs/runbooks/db-roles.md` |
+| 11 | T-041 giao diện rút tiền (người dùng) và admin chi trả hoạt động (kể cả CSV) | Backend/BFF xong (`prep/T-041`); giao diện: Codex đang làm | Claude (backend/BFF); Codex (UI) | `backlog/tasks/T-041a.md`, `T-041b.md` |
+
+Ghi chú: các mục trên là điều kiện **mở cho người ngoài**. Dùng nội bộ (chỉ PO và người quen, không quảng bá) vẫn có thể thử trên máy mình bằng tunnel nhanh, với `WITHDRAWALS_ENABLED=0`.
 
 ## E0 — Nền tảng, hạ tầng, vận hành  (45 điểm)
 
@@ -56,6 +61,7 @@ Ghi chú: các mục trên là điều kiện **mở cho người ngoài**. Dùn
   - Given fixture HAR When parse Then ra đúng 1 đơn 4.037,5đ
 
 ### T-060: Là admin, tôi muốn backup tự động mỗi ngày và test khôi phục
+- **Đã làm (2026-11-28, `autopilot/main`)**: script mã hóa + xoay vòng + khôi phục + runbook; đã thử đầu-cuối trên DB dev. **Lịch chạy thật (cron) và nơi lưu thứ hai: việc của PO** (xem `docs/autopilot/PO-INBOX.md`).
 - Loại: feature · 3 điểm · Must · Sprint 6 · Owner: codex · Phụ thuộc: T-002
 - Acceptance criteria:
   - Given 03:00 When job Then pg_dump nén mã hóa lưu ổ ngoài + Drive
@@ -77,6 +83,7 @@ Ghi chú: các mục trên là điều kiện **mở cho người ngoài**. Dùn
   - Given bản nháp When gửi PO Then đánh dấu cần tư vấn pháp lý
 
 ### T-065: Là admin, tôi muốn log có cấu trúc, che bí mật và trang health
+- **Backend đã làm (2026-11-28, `autopilot/main`)**: che log theo mẫu khóa (token, secret, cookie, bearer, JWT, mật khẩu trong URL...) và `GET /api/v1/admin/health`. Trang health trên web: đã làm (T-066).
 - Loại: feature · 3 điểm · Must · Sprint 6 · Owner: codex · Phụ thuộc: T-002
 - Acceptance criteria:
   - Given log When có cookie/token Then bị che
@@ -123,6 +130,7 @@ Ghi chú: các mục trên là điều kiện **mở cho người ngoài**. Dùn
   - Given sai mật khẩu 5 lần When thử Then bị khóa tạm theo IP+email
 
 ### T-011: Là thành viên, tôi muốn xác minh email và quên mật khẩu để lấy lại tài khoản
+- **Backend đã làm (2026-11-28, `autopilot/main`)**: token, endpoint, Mailer SMTP (cần `SMTP_*`, `WEB_ORIGIN`; chưa gửi thư thật lần nào). **Trang web `/verify-email`, `/reset-password`, `/forgot-password` đã làm (T-066).** Bật `REQUIRE_EMAIL_VERIFY=1` chỉ khi SMTP đã chạy.
 - Loại: feature · 5 điểm · Must · Sprint 1 · Owner: codex · Phụ thuộc: T-010
 - Acceptance criteria:
   - Given token hợp lệ When xác minh Then user active
@@ -161,7 +169,7 @@ Ghi chú: các mục trên là điều kiện **mở cho người ngoài**. Dùn
   - Given hai khách khác IP qua BFF When đăng nhập sai Then bộ đếm tách riêng
 
 ### T-018: Là PO, tôi muốn đổi SUBID_SECRET mà đơn từ link đã phát hành vẫn quy được về user
-- Loại: feature · 3 điểm · Should · Sprint 1 · Owner: claude · Phụ thuộc: T-010. **Chưa làm** (ghi lại 2026-11-27).
+- Loại: feature · 3 điểm · Should · Sprint 1 · Owner: claude · Phụ thuộc: T-010. **Đã làm (2026-11-28, `autopilot/main`)**: `SUBID_SECRET_PREVIOUS`, tối đa 3 khóa cũ, chỉ để giải mã.
 - Bối cảnh: `core/subid` chỉ hỗ trợ MỘT khóa (`SUBID_SECRET`). Đổi hoặc mất khóa thì mọi `utm_content` đã phát hành thành `invalid` (chữ ký sai) và đơn rơi vào hàng đơn mồ côi, không quy được về user.
 - Acceptance criteria:
   - Given `SUBID_SECRET_PREVIOUS` (danh sách khóa cũ) When giải mã sub_id ký bằng khóa cũ Then `ok` (thử khóa hiện tại trước, rồi khóa cũ)
@@ -171,7 +179,7 @@ Ghi chú: các mục trên là điều kiện **mở cho người ngoài**. Dùn
   - Given runbook When đọc Then có quy trình xoay khóa và việc sao lưu khóa ngoài `.env`
 
 ### T-019: Là admin, tôi muốn đăng nhập hai lớp (TOTP) để tài khoản admin không bị chiếm
-- Loại: feature · 5 điểm · Must (trước khi bật rút tiền thật) · Sprint 2 · Owner: claude · Phụ thuộc: T-010, T-040. **Chưa làm** (ghi 2026-11-28).
+- Loại: feature · 5 điểm · Must (trước khi bật rút tiền thật) · Sprint 2 · Owner: claude · Phụ thuộc: T-010, T-040. **Đã làm ở nhánh `task/T-019`, chờ PO duyệt merge** (ghi 2026-11-28).
 - Acceptance criteria:
   - Given admin chưa bật TOTP When gọi endpoint admin (duyệt, từ chối, chi trả, xem số tài khoản) Then 403 `mfa_required`
   - Given admin đăng ký TOTP When quét mã và nhập mã đúng Then bật; mã khôi phục hiện đúng một lần, lưu dạng băm
@@ -200,6 +208,7 @@ Ghi chú: các mục trên là điều kiện **mở cho người ngoài**. Dùn
 ## E4 — Đồng bộ Shopee và đơn hàng  (36 điểm)
 
 ### T-063: Là admin, tôi muốn dán cookie Shopee được mã hóa at-rest và không đọc lại được
+- **Đã làm (2026-11-28, `autopilot/main`)**: backend + worker + trạng thái; giao diện admin: chưa. Cảnh báo Telegram/Email là T-023 (chưa).
 - Loại: feature · 5 điểm · Must · Sprint 2 · Owner: claude · Phụ thuộc: T-012
 - Acceptance criteria:
   - Given cookie When lưu Then DB chỉ có bản mã hóa AES-GCM
@@ -230,6 +239,7 @@ Ghi chú: các mục trên là điều kiện **mở cho người ngoài**. Dùn
   - Given chữ ký sai hoặc id không tồn tại When khớp Then vào orphan_orders (thuộc admin)
 
 ### T-023: Là admin, tôi muốn cảnh báo khi cookie chết hoặc sync lỗi
+- **Đã làm (2026-11-28, `autopilot/main`)**: Telegram (cần `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`; chưa gửi thật lần nào); email chưa làm; chưa có health-check chủ động mỗi 15 phút (cảnh báo dựa trên kết quả mỗi lần sync).
 - Loại: feature · 5 điểm · Must · Sprint 2 · Owner: codex · Phụ thuộc: T-063, T-020
 - Acceptance criteria:
   - Given 403 When health-check Then trạng thái expired và gửi Telegram/Email
@@ -276,6 +286,7 @@ Ghi chú: các mục trên là điều kiện **mở cho người ngoài**. Dùn
   - Given hợp lệ When rút Then available→held trong 1 transaction
 
 ### T-041: Là admin, tôi muốn duyệt và chi trả thủ công bằng VietQR/CSV
+- **Tiến độ (2026-11-28):** backend duyệt/từ chối/chi trả có từ T-040; `prep/T-041` thêm CSV (chống công thức độc, audit từng dòng), `rules`/`usable_now`/`transfer_note`, BFF allowlist; giao diện: T-041a (người dùng) rồi T-041b (admin + TOTP) cho Codex. **VietQR chưa làm** (cần bảng mã BIN ngân hàng; CSV đủ cho MVP).
 - Loại: feature · 8 điểm · Must · Sprint 4 · Owner: claude · Phụ thuộc: T-040, T-012
 - Acceptance criteria:
   - Given yêu cầu When duyệt Then sinh mã VietQR/CSV chuyển hàng loạt
@@ -300,6 +311,7 @@ Ghi chú: các mục trên là điều kiện **mở cho người ngoài**. Dùn
   - Given min_rate When search Then lọc đúng theo feed
 
 ### T-051: Là Muse AI, tôi muốn insights doanh thu theo bài/ngành/giờ để học
+- **Đã làm (2026-11-28, `autopilot/main`)**: `GET /api/v1/agent/insights`, schema tool `shopee_insights` cho OpenAI/Gemini. Chưa có click theo bài. Chưa cách ly theo từng khóa agent (mọi khóa thấy mọi bài; hiện chỉ một Muse).
 - Loại: feature · 5 điểm · Should · Sprint 5 · Owner: codex · Phụ thuộc: T-050, T-022
 - Acceptance criteria:
   - Given đơn của bài When group=post Then hiện click/đơn/hoa hồng của từng bài
@@ -309,6 +321,7 @@ Ghi chú: các mục trên là điều kiện **mở cho người ngoài**. Dùn
 ## E8 — Admin và đối soát  (19 điểm)
 
 ### T-043: Là admin, tôi muốn dashboard tổng quan, quản lý user và đơn
+- **Backend đã làm (2026-11-28, `autopilot/main`)**: overview, users (tìm, khóa/mở), orders; xem `docs/08-api.md`. **Giao diện: đã làm** (T-043a: tổng quan, người dùng, đơn; T-043b: đơn mồ côi, cookie Shopee). Còn thiếu trang health và đối soát. Quyết định staff→admin: xem `docs/autopilot/DECISIONS.md`.
 - Loại: feature · 8 điểm · Must · Sprint 4 · Owner: codex · Phụ thuộc: T-012, T-021
 - Acceptance criteria:
   - Given admin When mở Then thấy click/đơn/hoa hồng/ví/cookie status
@@ -317,12 +330,14 @@ Ghi chú: các mục trên là điều kiện **mở cho người ngoài**. Dùn
   - Given user đã rút trước khi đơn bị thu hồi (bút toán `adjust`) When admin mở dashboard Then thấy tổng và danh sách khoản lỗ (đơn, user, số tiền, thời điểm); không hiện cho staff không có quyền tài chính
 
 ### T-044: Là staff, tôi muốn gán tay đơn mồ côi cho user khi có khiếu nại
+- **Đã làm (2026-11-28, `autopilot/main`)**: backend API admin; quyết định chỉ admin (xem `docs/autopilot/DECISIONS.md`). Giao diện: chưa.
 - Loại: feature · 3 điểm · Must · Sprint 4 · Owner: codex · Phụ thuộc: T-022, T-031
 - Acceptance criteria:
   - Given đơn mồ côi When gán user Then sinh entry pending cho user theo share snapshot
   - Given gán When xong Then audit ghi người làm và lý do
 
 ### T-052: Là admin, tôi muốn đối soát: hoa hồng Shopee − chia user − lợi nhuận
+- **Backend đã làm (2026-11-28, `autopilot/main`)**: đối soát tháng và kiểm tra toàn vẹn sổ cái. Giao diện đối soát: đã làm (T-066). Đối chiếu với số Shopee THẬT trả cho PO (so với tổng `shopee_commission_vnd` đã chuyển tiền): việc của PO khi có dữ liệu (xem `PO-INBOX.md`).
 - Loại: feature · 5 điểm · Should · Sprint 5 · Owner: claude · Phụ thuộc: T-031
 - Acceptance criteria:
   - Given tháng M When xem Then X(Shopee) = Y(chia user) + Z(mồ côi + bài) + lợi nhuận
@@ -337,6 +352,7 @@ Ghi chú: các mục trên là điều kiện **mở cho người ngoài**. Dùn
 ## E9 — Chống gian lận và khiếu nại  (13 điểm)
 
 ### T-053: Là staff, tôi muốn phát hiện tự mua, cùng IP/thiết bị, hủy bất thường
+- **Backend đã làm (2026-11-28, `autopilot/main`)**: 3 luật (cùng ip_hash, tỷ lệ hủy/trả, click dồn), lệnh `python -m app.main_worker fraud-scan`, admin xem/xử lý cờ. **Chưa làm:** luật theo UA/thiết bị (chưa có dữ liệu), luật "tự mua" (chủ tài khoản = người mua: không phát hiện được từ phía ta, xem R-08), "giữ pending" tự động (cố ý không làm: sai dương tính), giao diện, lịch chạy `fraud-scan` định kỳ (cron của PO).
 - Loại: feature · 8 điểm · Should · Sprint 5 · Owner: codex · Phụ thuộc: T-021
 - Acceptance criteria:
   - Given nhiều tài khoản cùng ip_hash/UA trong 24h When quét Then tạo fraud_flag

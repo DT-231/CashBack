@@ -19,3 +19,15 @@ class AccountLocked(AppError):
 
 class EmailUnverified(AppError):
     status, code = 403, "email_unverified"
+
+
+class MfaRequired(AppError):
+    status, code = 403, "mfa_required"
+
+
+class MfaInvalid(AppError):
+    status, code = 401, "mfa_invalid"
+
+
+class MfaState(AppError):
+    status, code = 409, "mfa_state"

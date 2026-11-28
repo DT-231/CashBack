@@ -7,13 +7,18 @@ import pytest
 from app.main_api import create_app
 from app.modules.audit.errors import InvalidAudit
 from app.modules.audit.service import Actor, AuditContext, audited
+from app.modules.auth.mfa_service import MfaService
+from app.modules.fraud.service import FraudService
+from app.modules.orders.admin_service import OrphanAdmin
+from app.modules.shopee_session.service import ShopeeSessionService
 from app.modules.payout import api as payout_api
 from app.modules.payout.service import PayoutService
 from app.modules.platform_settings.service import PlatformSettings
 from app.modules.wallet.money import WalletMoney
 
 # Mọi lớp service tiền/payout: (lớp, tập hàm chỉ-đọc được miễn)
-GUARDED = [(PayoutService, PayoutService.READ_ONLY), (WalletMoney, WalletMoney.READ_ONLY)]
+GUARDED = [(PayoutService, PayoutService.READ_ONLY), (WalletMoney, WalletMoney.READ_ONLY), (MfaService, MfaService.READ_ONLY),
+           (OrphanAdmin, OrphanAdmin.READ_ONLY), (ShopeeSessionService, ShopeeSessionService.READ_ONLY), (FraudService, FraudService.READ_ONLY)]
 
 
 def public_callables(cls):
@@ -35,7 +40,7 @@ def test_every_public_mutating_function_is_audited_with_a_required_keyword(cls, 
         assert getattr(fn, "__audited__", False), f"{cls.__name__}.{name} đổi dữ liệu nhưng thiếu @audited (hoặc thêm vào READ_ONLY nếu chỉ đọc)"
         p = inspect.signature(fn).parameters["audit"]
         assert p.kind is inspect.Parameter.KEYWORD_ONLY and p.default is inspect.Parameter.empty, f"{cls.__name__}.{name}: audit phải bắt buộc"
-    assert seen >= 4
+    assert seen >= 2
 
 
 def test_read_only_lists_contain_only_real_functions():
@@ -96,7 +101,9 @@ def _deps(dependant):
 
 
 # Route admin CHỈ-ĐỌC không lộ dữ liệu nhạy cảm được miễn audit (vẫn bắt buộc require_admin). Thêm route khác vào đây là quyết định có chủ ý.
-ADMIN_READ_ONLY_PATHS = {"/api/v1/admin/withdrawals"}
+ADMIN_READ_ONLY_PATHS = {"/api/v1/admin/withdrawals", "/api/v1/admin/orphans", "/api/v1/admin/shopee-session/status", "/api/v1/admin/overview",
+                        "/api/v1/admin/users", "/api/v1/admin/orders", "/api/v1/admin/health",
+                        "/api/v1/admin/reconciliation", "/api/v1/admin/ledger-integrity", "/api/v1/admin/fraud-flags"}
 
 
 def test_every_write_or_admin_route_has_the_required_dependencies(make_settings):

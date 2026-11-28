@@ -116,10 +116,11 @@ def test_health_reports_missing_bff_secret(make_settings):
     def health(**kw):
         return TestClient(create_app(make_settings(**kw))).get("/health").json()
 
-    assert health()["visitor_ip"] == "direct" and health()["degraded"] is False
+    assert health()["degraded"] is False
     for kw in ({"bff_enabled": True}, {"bff_enabled": True, "bff_shared_secret": "short"}):
         h = health(**kw)
-        assert h["degraded"] is True and h["visitor_ip"] in ("missing_secret", "short_secret")
-        assert h["warnings"] and "short" not in " ".join(h["warnings"]).replace("quá ngắn", "")
+        assert h["degraded"] is True
+        for k in ("warnings", "visitor_ip", "bff_enabled"):
+            assert k not in h                                                    # /health công khai không lộ chi tiết cấu hình yếu
     ok = health(bff_enabled=True, bff_shared_secret="x" * 16)
-    assert ok["visitor_ip"] == "ok" and ok["degraded"] is False and ok["warnings"] == []
+    assert ok["degraded"] is False and "warnings" not in ok
