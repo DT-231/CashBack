@@ -41,3 +41,4 @@ codex-kit.zip
 README-codex-kit.md
 *.zip
 node_modules
+.autopilot-runs/
